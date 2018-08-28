@@ -2,20 +2,20 @@ from abc import abstractmethod
 from utils.poker import Card
 from utils.log import Log
 
-IS_DEBUG=True
-system_log=Log(IS_DEBUG)
+
 class PokerBot(object):
 
-    def __init__(self,player_name):
-        self.round_cards_history=[]
-        self.pick_his={}
+    def __init__(self, player_name, system_log):
+        self.round_cards_history = []
+        self.pick_his = {}
         self.round_cards = {}
-        self.score_cards={}
-        self.player_name=player_name
-        self.players_current_picked_cards=[]
+        self.score_cards = {}
+        self.player_name = player_name
+        self.players_current_picked_cards = []
         self.game_score_cards = {Card("QS"), Card("TC"), Card("2H"), Card("3H"), Card("4H"), Card("5H"), Card("6H"),
                            Card("7H"), Card("8H"), Card("9H"), Card("TH"), Card("JH"), Card("QH"), Card("KH"),
                            Card("AH")}
+        self.system_log = system_log
     #@abstractmethod
     def receive_cards(self,data):
         err_msg = self.__build_err_msg("receive_cards")
@@ -92,7 +92,7 @@ class PokerBot(object):
                     break
             return receive_cards
         except Exception, e:
-            system_log.show_message(e.message)
+            self.system_log.show_message(e.message)
             return None
 
     def get_round_scores(self,is_expose_card=False,data=None):
@@ -159,7 +159,7 @@ class PokerBot(object):
                 picked_cards[player_name]=player_picked
             return final_scores, initial_cards,receive_cards,picked_cards
         except Exception, e:
-            system_log.show_message(e.message)
+            self.system_log.show_message(e.message)
             return None
 
     def get_game_scores(self,data):
@@ -172,14 +172,14 @@ class PokerBot(object):
                 receive_cards[player_name]=palyer_score
             return receive_cards
         except Exception, e:
-            system_log.show_message(e.message)
+            self.system_log.show_message(e.message)
             return None
 
 
 class LowPlayBot(PokerBot):
 
-    def __init__(self,name):
-        super(LowPlayBot,self).__init__(name)
+    def __init__(self,name,system_log):
+        super(LowPlayBot,self).__init__(name, system_log)
         self.my_hand_cards=[]
         self.expose_card=False
         self.my_pass_card=[]
@@ -249,8 +249,8 @@ class LowPlayBot(PokerBot):
         for card in pass_cards:
             return_values.append(card.toString())
         message="Pass Cards:{}".format(return_values)
-        system_log.show_message(message)
-        system_log.save_logs(message)
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
         self.my_pass_card=return_values
         return return_values
 
@@ -262,16 +262,16 @@ class LowPlayBot(PokerBot):
             card = Card(card_str)
             self.my_hand_cards.append(card)
         message = "My Cards:{}".format(self.my_hand_cards)
-        system_log.show_message(message)
+        self.system_log.show_message(message)
         card_index=0
         message = "Pick Card Event Content:{}".format(data)
-        system_log.show_message(message)
+        self.system_log.show_message(message)
         message = "Candidate Cards:{}".format(cadidate_cards)
-        system_log.show_message(message)
-        system_log.save_logs(message)
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
         message = "Pick Card:{}".format(cadidate_cards[card_index])
-        system_log.show_message(message)
-        system_log.save_logs(message)
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
         return cadidate_cards[card_index]
 
     def expose_my_cards(self,yourcards):
@@ -280,8 +280,8 @@ class LowPlayBot(PokerBot):
             if card==Card("AH"):
                 expose_card.append(card.toString())
         message = "Expose Cards:{}".format(expose_card)
-        system_log.show_message(message)
-        system_log.save_logs(message)
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
         return expose_card
 
     def expose_cards_end(self,data):
@@ -294,17 +294,17 @@ class LowPlayBot(PokerBot):
                     expose_player=player['playerName']
                     expose_card=player['exposedCards']
             except Exception, e:
-                system_log.show_message(e.message)
-                system_log.save_logs(e.message)
+                self.system_log.show_message(e.message)
+                self.system_log.save_logs(e.message)
         if expose_player!=None and expose_card!=None:
             message="Player:{}, Expose card:{}".format(expose_player,expose_card)
-            system_log.show_message(message)
-            system_log.save_logs(message)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
             self.expose_card=True
         else:
             message="No player expose card!"
-            system_log.show_message(message)
-            system_log.save_logs(message)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
             self.expose_card=False
 
     def receive_opponent_cards(self,data):
@@ -316,44 +316,44 @@ class LowPlayBot(PokerBot):
                 picked_cards = player['pickedCards']
                 receive_cards = player['receivedCards']
                 message = "User Name:{}, Picked Cards:{}, Receive Cards:{}".format(player_name, picked_cards,receive_cards)
-                system_log.show_message(message)
-                system_log.save_logs(message)
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
 
     def round_end(self,data):
         try:
             round_scores=self.get_round_scores(self.expose_card, data)
             for key in round_scores.keys():
                 message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
-                system_log.show_message(message)
-                system_log.save_logs(message)
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
         except Exception, e:
-            system_log.show_message(e.message)
+            self.system_log.show_message(e.message)
 
     def deal_end(self,data):
         self.my_hand_cards=[]
         self.expose_card = False
         deal_scores,initial_cards,receive_cards,picked_cards=self.get_deal_scores(data)
         message = "Player name:{}, Pass Cards:{}".format(self.player_name, self.my_pass_card)
-        system_log.show_message(message)
-        system_log.save_logs(message)
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
         for key in deal_scores.keys():
             message = "Player name:{}, Deal score:{}".format(key,deal_scores.get(key))
-            system_log.show_message(message)
-            system_log.save_logs(message)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
         for key in initial_cards.keys():
             message = "Player name:{}, Initial cards:{}, Receive cards:{}, Picked cards:{}".format(key, initial_cards.get(key),receive_cards.get(key),picked_cards.get(key))
-            system_log.show_message(message)
-            system_log.save_logs(message)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
 
     def game_over(self,data):
         game_scores = self.get_game_scores(data)
         for key in game_scores.keys():
             message = "Player name:{}, Game score:{}".format(key, game_scores.get(key))
-            system_log.show_message(message)
-            system_log.save_logs(message)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
 
     def pick_history(self,data,is_timeout,pick_his):
         for key in pick_his.keys():
             message = "Player name:{}, Pick card:{}, Is timeout:{}".format(key,pick_his.get(key),is_timeout)
-            system_log.show_message(message)
-            system_log.save_logs(message)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)

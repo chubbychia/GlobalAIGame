@@ -10,8 +10,7 @@ from utils.log import Log
 
 IS_DEBUG=True
 system_log=Log(IS_DEBUG)
-
-
+OBSERVATION_DIM = 4 * 13 * 4
 class PokerSocket(object):
     ws = ""
     def __init__(self,player_name,player_number,token,connect_url,poker_bot):
@@ -21,10 +20,10 @@ class PokerSocket(object):
         self.poker_bot=poker_bot
         self.token=token
 
-    # events
     def takeAction(self,action, data):
        if  action=="new_deal":
            self.poker_bot.receive_cards(data)
+       # require response 
        elif action=="pass_cards":
            pass_cards=self.poker_bot.pass_cards(data)
            self.ws.send(json.dumps(
@@ -74,6 +73,7 @@ class PokerSocket(object):
                        "turnCard": pick_card
                    }
                }))
+        # get dealScore for every turn
        elif action=="turn_end":
            self.poker_bot.turn_end(data)
        elif action=="round_end":
@@ -123,7 +123,7 @@ def main():
         player_number=777
         token="12345678"
         connect_url="ws://10.1.229.94:8080/"
-    sample_bot=LowPlayBot(player_name)
+    sample_bot=LowPlayBot(player_name, system_log)
     myPokerSocket=PokerSocket(player_name,player_number,token,connect_url,sample_bot)
     myPokerSocket.doListen()
 
