@@ -12,6 +12,6 @@ class Log(object):
         self.logger.setLevel(logging.INFO)
     def show_message(self,msg):
         if self.is_debug:
-            print msg
+            print(msg)
     def save_logs(self,msg):
         self.logger.info(msg)

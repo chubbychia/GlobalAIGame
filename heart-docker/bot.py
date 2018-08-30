@@ -1,7 +1,9 @@
 from abc import abstractmethod
 from utils.poker import Card
 from utils.log import Log
-
+from ml.A3C import A3CAgent, Agent
+from player import Player
+import collections
 
 class PokerBot(object):
 
@@ -16,8 +18,14 @@ class PokerBot(object):
                            Card("7H"), Card("8H"), Card("9H"), Card("TH"), Card("JH"), Card("QH"), Card("KH"),
                            Card("AH")}
         self.system_log = system_log
+        self.state_size = 54
+        self.action_size = 52
+        self.player_dict = collections.defaultdict(list)
+        self.global_agent = A3CAgent(self.state_size, self.action_size)
+        self.players_episodes = []
+
     #@abstractmethod
-    def receive_cards(self,data):
+    def new_deal(self,data):
         err_msg = self.__build_err_msg("receive_cards")
         raise NotImplementedError(err_msg)
     def pass_cards(self,data):
@@ -51,34 +59,13 @@ class PokerBot(object):
     def reset_card_his(self):
         self.round_cards_history = []
         self.pick_his={}
+    
+    def reset_player_dict(self):
+        self.players_episodes = []
+        self.player_dict = {}
 
     def get_card_history(self):
         return self.round_cards_history
-
-    def turn_end(self,data):
-        turnCard=data['turnCard']
-        turnPlayer=data['turnPlayer']
-        players=data['players']
-        is_timeout=data['serverRandom']
-        for player in players:
-            player_name=player['playerName']
-            if player_name==self.player_name:
-                current_cards=player['cards']
-                for card in current_cards:
-                    self.players_current_picked_cards.append(Card(card))
-        self.round_cards[turnPlayer]=Card(turnCard)
-        opp_pick={}
-        opp_pick[turnPlayer]=Card(turnCard)
-        if (self.pick_his.get(turnPlayer))!=None:
-            pick_card_list=self.pick_his.get(turnPlayer)
-            pick_card_list.append(Card(turnCard))
-            self.pick_his[turnPlayer]=pick_card_list
-        else:
-            pick_card_list = []
-            pick_card_list.append(Card(turnCard))
-            self.pick_his[turnPlayer] = pick_card_list
-        self.round_cards_history.append(Card(turnCard))
-        self.pick_history(data,is_timeout,opp_pick)
 
     def get_cards(self,data):
         try:
@@ -91,14 +78,14 @@ class PokerBot(object):
                         receive_cards.append(Card(card))
                     break
             return receive_cards
-        except Exception, e:
+        except Exception as e:
             self.system_log.show_message(e.message)
             return None
 
     def get_round_scores(self,is_expose_card=False,data=None):
         if data!=None:
-            players=data['roundPlayers']
-            picked_user = players[0]
+            players = data['roundPlayers']
+            picked_user = players[0] #init
             round_card = self.round_cards.get(picked_user)
             score_cards=[]
             for i in range(len(players)):
@@ -107,7 +94,7 @@ class PokerBot(object):
                     score_cards.append(card)
                 if round_card.suit_index==card.suit_index:
                     if round_card.value<card.value:
-                        picked_user = players[i]
+                        picked_user = players[i] #next
                         round_card=card
             if (self.score_cards.get(picked_user)!=None):
                 current_score_cards=self.score_cards.get(picked_user)
@@ -158,7 +145,7 @@ class PokerBot(object):
                 receive_cards[player_name]=player_receive
                 picked_cards[player_name]=player_picked
             return final_scores, initial_cards,receive_cards,picked_cards
-        except Exception, e:
+        except Exception as e:
             self.system_log.show_message(e.message)
             return None
 
@@ -171,21 +158,29 @@ class PokerBot(object):
                 palyer_score=player['gameScore']
                 receive_cards[player_name]=palyer_score
             return receive_cards
-        except Exception, e:
+        except Exception as e:
             self.system_log.show_message(e.message)
             return None
+  
+    # save <s, a ,r> of each step from every player's point of view
+    def set_allplayers_episodes(self, player):
+        self.players_episodes.append(player)
 
-
-class LowPlayBot(PokerBot):
+   
+class HeartPlayBot(PokerBot):
 
     def __init__(self,name,system_log):
-        super(LowPlayBot,self).__init__(name, system_log)
+        super(HeartPlayBot,self).__init__(name, system_log)
         self.my_hand_cards=[]
         self.expose_card=False
         self.my_pass_card=[]
+       
     
-    def receive_cards(self,data):
+    def new_deal(self,data):
         self.my_hand_cards=self.get_cards(data)
+        # init Players
+        for player in data['players']:
+            self.player_dict[player['playerName']] = Player(player['playerName'],self.state_size,self.action_size)
 
     def _sorting_desc(self):
         def _quicksort(unsort_cards):
@@ -223,13 +218,13 @@ class LowPlayBot(PokerBot):
             elif card==Card("TC"): # - double your score in this deal (except shooting the moon)
                 pass_cards.append(card)
                 count += 1
-            elif card.suit_index == 2: # pick largest Heart (already desc sort)
-                pass_cards.append(card)
-                count += 1
-                if count == 3:
-                    break
+            #elif card.suit_index == 2: # pick largest Heart (already desc sort)
+            #    pass_cards.append(card)
+            #    count += 1
+            if count == 3:
+                break
         if count < 3:
-            suit_dict = defaultdict(int)
+            suit_dict = collections.defaultdict(int)
             for card in self.my_hand_card:
                 suit_dict[card.suit_index] += 1 
             minn = None
@@ -248,31 +243,48 @@ class LowPlayBot(PokerBot):
         return_values=[]
         for card in pass_cards:
             return_values.append(card.toString())
-        message="Pass Cards:{}".format(return_values)
-        self.system_log.show_message(message)
-        self.system_log.save_logs(message)
+        #message="Player:{}, Pass Cards:{}".format(data['self']['playerName'],return_values)
+        #self.system_log.show_message(message)
+        #self.system_log.save_logs(message)
         self.my_pass_card=return_values
         return return_values
 
     def pick_card(self,data):
-        cadidate_cards=data['self']['candidateCards'] # Action
-        cards = data['self']['cards']
-        self.my_hand_cards = []
-        for card_str in cards:
-            card = Card(card_str)
-            self.my_hand_cards.append(card)
-        message = "My Cards:{}".format(self.my_hand_cards)
-        self.system_log.show_message(message)
-        card_index=0
-        message = "Pick Card Event Content:{}".format(data)
-        self.system_log.show_message(message)
-        message = "Candidate Cards:{}".format(cadidate_cards)
+        me = data['self']['playerName'] 
+        if self.player_dict[me]:
+            predict_card_idx = self.global_agent.predict_action(self.player_dict[me].state)
+        message = "Me:{}, Predict result:{}".format(me, predict_card_idx)
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
-        message = "Pick Card:{}".format(cadidate_cards[card_index])
+        suit = predict_card_idx / 13
+        value = predict_card_idx % 13 + 2
+        suit_value_dict = {10:"T", 11:"J", 12:"Q", 13:"K", 14:"A", 2:"2", 3:"3", 4:"4", 5:"5", 6:"6", 7:"7", 8:"8", 9:"9"}
+        suit_index_dict = {0:"S", 1:"C", 2:"H", 3:"D"}
+        card_string = suit_value_dict[value]+suit_index_dict[suit]
+        message = "Me:{}, Predict Action:{}".format(me, card_string)
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
-        return cadidate_cards[card_index]
+        cadidate_cards=data['self']['candidateCards'] # Action Candidates
+        if card_string not in cadidate_cards:
+            cards = data['self']['cards']
+            self.my_hand_cards = []
+            for card_str in cards:
+                card = Card(card_str)
+                self.my_hand_cards.append(card)
+            message = "My Cards:{}".format(self.my_hand_cards)
+            self.system_log.show_message(message)
+            card_index=0
+            message = "Pick Card Event Content:{}".format(data)
+            self.system_log.show_message(message)
+            message = "Candidate Cards:{}".format(cadidate_cards)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            message = "Pick Card:{}".format(cadidate_cards[card_index])
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            return cadidate_cards[card_index]
+        else:
+            return card_string
 
     def expose_my_cards(self,yourcards):
         expose_card=[]
@@ -293,13 +305,15 @@ class LowPlayBot(PokerBot):
                 if player['exposedCards']!=[] and len(player['exposedCards'])>0 and player['exposedCards']!=None:
                     expose_player=player['playerName']
                     expose_card=player['exposedCards']
-            except Exception, e:
+            except Exception as e:
                 self.system_log.show_message(e.message)
                 self.system_log.save_logs(e.message)
         if expose_player!=None and expose_card!=None:
             message="Player:{}, Expose card:{}".format(expose_player,expose_card)
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
+            for player in self.player_dict.values():
+                player.set_AH_exposed()
             self.expose_card=True
         else:
             message="No player expose card!"
@@ -315,19 +329,102 @@ class LowPlayBot(PokerBot):
             if player_name == self.player_name:
                 picked_cards = player['pickedCards']
                 receive_cards = player['receivedCards']
-                message = "User Name:{}, Picked Cards:{}, Receive Cards:{}".format(player_name, picked_cards,receive_cards)
+                message = "Player:{}, Picked Cards:{}, Received Cards:{}".format(player_name, picked_cards,receive_cards)
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
+    
+    def pass_cards_end(self,data):
+        players = data['players']
+        for player in players:
+            player_name = player['playerName']
+            cards = player['cards']
+            gave_cards = player['pickedCards']
+            received_cards = player['receivedCards']
+            new_hand_cards = [left for left in cards if left not in gave_cards]
+            message="Player:{}, left cards:{}".format(player_name, new_hand_cards)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            new_hand_cards.append(received_cards)
+            message="Player:{}, left and received cards:{}".format(player_name, new_hand_cards)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            player_sample = self.player_dict[player_name]
+            if player_sample:
+                player_sample.set_hand_cards(new_hand_cards)
+                message="Player:{}, new state after passing:{}".format(player_name, player_sample.state)
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
+    
+    def new_round(self,data):
+        pass
+
+    def turn_end(self,data):
+        turnCard=data['turnCard']
+        turnPlayer=data['turnPlayer']
+        players=data['players']
+        is_timeout=data['serverRandom']
+        for player in players:
+            player_name=player['playerName']
+            if player_name == self.player_name:
+                current_cards=player['cards']
+                for card in current_cards:
+                    self.players_current_picked_cards.append(Card(card)) # self left hand cards
+        self.round_cards[turnPlayer]=Card(turnCard) # turnPlayer hand out turnCard
+        
+        for player_name, player in self.player_dict.items():
+            if player_name == turnPlayer:
+                player.set_hand_out_card(Card(turnCard))
+                player.set_action(Card(turnCard))
+                message = "Turn Player:{} hand out {} State: {}; Action:{}".format(player_name, turnCard, player.state, player.action)
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
+            else:
+                player.set_used_card(Card(turnCard))
+                message = "Others:{} mark {} used. State: {}".format(player_name, turnCard, player.state)
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
 
+        opp_pick={}
+        opp_pick[turnPlayer]=Card(turnCard)
+        if (self.pick_his.get(turnPlayer))!=None:
+            pick_card_list=self.pick_his.get(turnPlayer)
+            pick_card_list.append(Card(turnCard))
+            self.pick_his[turnPlayer]=pick_card_list
+        else:
+            pick_card_list = []
+            pick_card_list.append(Card(turnCard))
+            self.pick_his[turnPlayer] = pick_card_list
+        self.round_cards_history.append(Card(turnCard))
+        self.pick_history(data,is_timeout,opp_pick)
+
     def round_end(self,data):
         try:
-            round_scores=self.get_round_scores(self.expose_card, data)
+            round_scores=self.get_round_scores(self.expose_card, data) # we calculate the round scores with AH, TC rules!
+            players = data['players']
+            for player in players:
+                player_name = player['playerName']
+                player_state = self.player_dict[player_name]
+                player_state.set_score_cards(player['scoreCards'])
+                message = "Player:{}, scoreCards:{} State:{}".format(player_name, player['scoreCards'], player_state.state)
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
+                if "TC" in player['scoreCards']:
+                    player_state.set_TC_eaten()
+                    message = "Player:{}, TC eaten:{} State:{}".format(player_name, player['scoreCards'], player_state.state)
+                    self.system_log.show_message(message)
+                    self.system_log.save_logs(message)
             for key in round_scores.keys():
                 message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
-        except Exception, e:
-            self.system_log.show_message(e.message)
+                self.player_dict[key].set_reward(round_scores.get(key))
+                message = "Player name:{}, state {}, action {}, reward {} ".format(key,self.player_dict[key].state, self.player_dict[key].action, self.player_dict[key].reward)
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
+            self.player_dict[key].memorize()
+        except Exception as e:
+            self.system_log.show_message(e)
+            self.system_log.save_logs(e)
 
     def deal_end(self,data):
         self.my_hand_cards=[]
@@ -337,9 +434,14 @@ class LowPlayBot(PokerBot):
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
         for key in deal_scores.keys():
+            self.player_dict[key].set_total_rewards(deal_scores.get(key))
             message = "Player name:{}, Deal score:{}".format(key,deal_scores.get(key))
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
+            self.set_allplayers_episodes(self.player_dict[key])
+           
+        self.global_agent.train(self.players_episodes)
+        
         for key in initial_cards.keys():
             message = "Player name:{}, Initial cards:{}, Receive cards:{}, Picked cards:{}".format(key, initial_cards.get(key),receive_cards.get(key),picked_cards.get(key))
             self.system_log.show_message(message)

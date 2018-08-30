@@ -16,6 +16,7 @@ class Card:
 
     def __repr__(self):
         return self.val_string[14 - self.value] + self.suit
+    
     def __eq__(self, other):
         if self is None:
             return other is None

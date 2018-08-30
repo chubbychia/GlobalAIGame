@@ -4,13 +4,14 @@
 from websocket import create_connection
 import sys
 import json
-from bot import LowPlayBot
+from bot import HeartPlayBot
 from utils.log import Log
 
 
 IS_DEBUG=True
 system_log=Log(IS_DEBUG)
-OBSERVATION_DIM = 4 * 13 * 4
+
+
 class PokerSocket(object):
     ws = ""
     def __init__(self,player_name,player_number,token,connect_url,poker_bot):
@@ -20,10 +21,13 @@ class PokerSocket(object):
         self.poker_bot=poker_bot
         self.token=token
 
+    # Concept: 4 players, 4 view points. 1 episode can be 4 epi samples if change view point
     def takeAction(self,action, data):
+       # init Players
+       # init state for each player (init value = 0)
        if  action=="new_deal":
-           self.poker_bot.receive_cards(data)
-       # require response 
+           self.poker_bot.new_deal(data)
+       # rule-based pick passed card
        elif action=="pass_cards":
            pass_cards=self.poker_bot.pass_cards(data)
            self.ws.send(json.dumps(
@@ -35,9 +39,10 @@ class PokerSocket(object):
                     }
                 }))
        elif action=="receive_opponent_cards":
-           self.poker_bot.receive_opponent_cards(data)
-       # Only sent to the client who has the "AH" card. 
-       # If exposed, all heart "negative" scores doubled for "all" players in this deal
+            self.poker_bot.receive_opponent_cards(data)
+       # set 1 to received + owned cards 
+       elif action=="pass_cards_end":
+            self.poker_bot.pass_cards_end(data)   
        elif action=="expose_cards":
            export_cards = self.poker_bot.expose_my_cards(data)
            if export_cards!=None:
@@ -49,8 +54,10 @@ class PokerSocket(object):
                            "cards": export_cards
                        }
                    }))
+       # set 1 to idx 52(AH) to states of every player 
        elif action=="expose_cards_end":
            self.poker_bot.expose_cards_end(data)
+       # predict
        elif action=="your_turn":
            pick_card = self.poker_bot.pick_card(data)
            message="Send message:{}".format(json.dumps(
@@ -73,14 +80,24 @@ class PokerSocket(object):
                        "turnCard": pick_card
                    }
                }))
-        # get dealScore for every turn
+        
+       # set -1 to self handed card (turnCard, turnPlayer)
+       # set 2 to others handed card
+       # set action to this turn
        elif action=="turn_end":
            self.poker_bot.turn_end(data)
+       # set -2 to score cards location
+       # set TC eaten if it shows -> idx 53 (TC) to 1
+       # set reward for every player
+       # memorize the this round
        elif action=="round_end":
            self.poker_bot.round_end(data)
+       # train
+       # reset player_dict
        elif action=="deal_end":
            self.poker_bot.deal_end(data)
            self.poker_bot.reset_card_his()
+           self.poker_bot.reset_player_dict()
        elif action=="game_end":
            self.poker_bot.game_over(data)
            self.ws.close()
@@ -105,7 +122,7 @@ class PokerSocket(object):
                 system_log.show_message(data)
                 system_log.save_logs(data)
                 self.takeAction(event_name, data)
-        except Exception, e:
+        except Exception as e:
             system_log.show_message(e)
             system_log.save_logs(e)
             self.doListen()
@@ -123,7 +140,7 @@ def main():
         player_number=777
         token="12345678"
         connect_url="ws://10.1.229.94:8080/"
-    sample_bot=LowPlayBot(player_name, system_log)
+    sample_bot=HeartPlayBot(player_name, system_log)
     myPokerSocket=PokerSocket(player_name,player_number,token,connect_url,sample_bot)
     myPokerSocket.doListen()
 
