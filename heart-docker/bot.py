@@ -22,7 +22,7 @@ class PokerBot(object):
         self.action_size = 52
         self.player_dict = collections.defaultdict(list)
         self.global_agent = A3CAgent(self.state_size, self.action_size)
-        self.players_episodes = []
+        self.player_episodes = []
 
     #@abstractmethod
     def new_deal(self,data):
@@ -61,7 +61,7 @@ class PokerBot(object):
         self.pick_his={}
     
     def reset_player_dict(self):
-        self.players_episodes = []
+        self.player_episodes = []
         self.player_dict = {}
 
     def get_card_history(self):
@@ -79,7 +79,8 @@ class PokerBot(object):
                     break
             return receive_cards
         except Exception as e:
-            self.system_log.show_message(e.message)
+            self.system_log.show_message(e)
+            self.system_log.save_errors(e)
             return None
 
     def get_round_scores(self,is_expose_card=False,data=None):
@@ -146,7 +147,8 @@ class PokerBot(object):
                 picked_cards[player_name]=player_picked
             return final_scores, initial_cards,receive_cards,picked_cards
         except Exception as e:
-            self.system_log.show_message(e.message)
+            self.system_log.show_message(e)
+            self.system_log.save_errors(e)
             return None
 
     def get_game_scores(self,data):
@@ -159,12 +161,13 @@ class PokerBot(object):
                 receive_cards[player_name]=palyer_score
             return receive_cards
         except Exception as e:
-            self.system_log.show_message(e.message)
+            self.system_log.show_message(e)
+            self.system_log.save_errors(e)
             return None
   
     # save <s, a ,r> of each step from every player's point of view
-    def set_allplayers_episodes(self, player):
-        self.players_episodes.append(player)
+    def set_player_episodes(self, player):
+        self.player_episodes.append(player)
 
    
 class HeartPlayBot(PokerBot):
@@ -178,11 +181,13 @@ class HeartPlayBot(PokerBot):
     
     def new_deal(self,data):
         self.my_hand_cards=self.get_cards(data)
-        # init Players
-        for player in data['players']:
-            self.player_dict[player['playerName']] = Player(player['playerName'],self.state_size,self.action_size)
+        # init Player
+        self.player_dict[self.player_name] = Player(self.player_name,self.state_size,self.action_size)
+        message="New Deal: No.{}".format(data['dealNumber'])
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
 
-    def _sorting_desc(self):
+    def _sorting_desc(self, cards):
         def _quicksort(unsort_cards):
             if len(unsort_cards) <= 1:
                 return unsort_cards
@@ -201,7 +206,7 @@ class HeartPlayBot(PokerBot):
                 pivotlist.append(pivot)
                 return _quicksort(larger)+pivotlist+_quicksort(minor)
         
-        return _quicksort(self.my_hand_cards)
+        return _quicksort(cards)
         
     def pass_cards(self,data):
         cards = data['self']['cards']
@@ -211,7 +216,10 @@ class HeartPlayBot(PokerBot):
             self.my_hand_cards.append(card)
         pass_cards=[]
         count=0
+        suit_dict = collections.defaultdict(int)
         for card in self.my_hand_cards:
+            # count every suit's amount
+            suit_dict[card.suit] += 1 
             if card==Card("QS"): # -13
                 pass_cards.append(card)
                 count+=1
@@ -223,29 +231,21 @@ class HeartPlayBot(PokerBot):
             #    count += 1
             if count == 3:
                 break
-        if count < 3:
-            suit_dict = collections.defaultdict(int)
-            for card in self.my_hand_card:
-                suit_dict[card.suit_index] += 1 
-            minn = None
-            for k,v in suit_dict.items():
-                if minn is None or v < minn:
-                    minn = k
-            for card in self.my_hand_card: 
-                if card.suit_index == minn: # pick the least suit
+        i=0
+        asc_suit_amount = sorted(suit_dict.items(), key=lambda d: d[1]) #asc dict value
+        while count < 3:
+            minn = asc_suit_amount[i][0]
+            for card in self.my_hand_cards: 
+                if card.suit == minn: # pick the least suit so far
                     pass_cards.append(card)
                     count += 1
-                if count < 3: 
-                    pass_cards.append(card)
                 if count == 3:
                     break
-
+            i+=1
+                
         return_values=[]
         for card in pass_cards:
             return_values.append(card.toString())
-        #message="Player:{}, Pass Cards:{}".format(data['self']['playerName'],return_values)
-        #self.system_log.show_message(message)
-        #self.system_log.save_logs(message)
         self.my_pass_card=return_values
         return return_values
 
@@ -253,14 +253,14 @@ class HeartPlayBot(PokerBot):
         me = data['self']['playerName'] 
         if self.player_dict[me]:
             predict_card_idx = self.global_agent.predict_action(self.player_dict[me].state)
-        message = "Me:{}, Predict result:{}".format(me, predict_card_idx)
+        message = "Me:{}, Predict Result:{}".format(me, predict_card_idx)
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
-        suit = predict_card_idx / 13
+        suit = predict_card_idx // 13
         value = predict_card_idx % 13 + 2
         suit_value_dict = {10:"T", 11:"J", 12:"Q", 13:"K", 14:"A", 2:"2", 3:"3", 4:"4", 5:"5", 6:"6", 7:"7", 8:"8", 9:"9"}
         suit_index_dict = {0:"S", 1:"C", 2:"H", 3:"D"}
-        card_string = suit_value_dict[value]+suit_index_dict[suit]
+        card_string = suit_value_dict[value] + suit_index_dict[suit]
         message = "Me:{}, Predict Action:{}".format(me, card_string)
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
@@ -306,14 +306,14 @@ class HeartPlayBot(PokerBot):
                     expose_player=player['playerName']
                     expose_card=player['exposedCards']
             except Exception as e:
-                self.system_log.show_message(e.message)
-                self.system_log.save_logs(e.message)
+                self.system_log.show_message(e)
+                self.system_log.save_errors(e)
         if expose_player!=None and expose_card!=None:
             message="Player:{}, Expose card:{}".format(expose_player,expose_card)
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
-            for player in self.player_dict.values():
-                player.set_AH_exposed()
+            #for player in self.player_dict.values(): # if multi 
+            self.player_dict[self.player_name].set_AH_exposed()
             self.expose_card=True
         else:
             message="No player expose card!"
@@ -329,60 +329,51 @@ class HeartPlayBot(PokerBot):
             if player_name == self.player_name:
                 picked_cards = player['pickedCards']
                 receive_cards = player['receivedCards']
-                message = "Player:{}, Picked Cards:{}, Received Cards:{}".format(player_name, picked_cards,receive_cards)
+                message = "Me:{}, Picked Cards:{}, Received Cards:{}".format(player_name, picked_cards,receive_cards)
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
     
     def pass_cards_end(self,data):
         players = data['players']
         for player in players:
-            player_name = player['playerName']
-            cards = player['cards']
-            gave_cards = player['pickedCards']
-            received_cards = player['receivedCards']
-            new_hand_cards = [left for left in cards if left not in gave_cards]
-            message="Player:{}, left cards:{}".format(player_name, new_hand_cards)
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
-            new_hand_cards.append(received_cards)
-            message="Player:{}, left and received cards:{}".format(player_name, new_hand_cards)
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
-            player_sample = self.player_dict[player_name]
-            if player_sample:
-                player_sample.set_hand_cards(new_hand_cards)
-                message="Player:{}, new state after passing:{}".format(player_name, player_sample.state)
-                self.system_log.show_message(message)
-                self.system_log.save_logs(message)
+            if player['playerName'] == self.player_name:
+                cards = player['cards']
+                player_sample = self.player_dict[self.player_name]
+                if player_sample:
+                    player_sample.set_hand_cards(cards)
+                    message="Me:{}, new state after pass cards changing:{}".format(self.player_name, player_sample.state)
+                    self.system_log.show_message(message)
+                    self.system_log.save_logs(message)
     
     def new_round(self,data):
-        pass
+        message="New Round: No.{}".format(data['roundNumber'])
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
 
     def turn_end(self,data):
         turnCard=data['turnCard']
         turnPlayer=data['turnPlayer']
         players=data['players']
         is_timeout=data['serverRandom']
+        player_sample = self.player_dict[self.player_name]
         for player in players:
-            player_name=player['playerName']
-            if player_name == self.player_name:
+            if player['playerName'] == self.player_name:
                 current_cards=player['cards']
                 for card in current_cards:
                     self.players_current_picked_cards.append(Card(card)) # self left hand cards
         self.round_cards[turnPlayer]=Card(turnCard) # turnPlayer hand out turnCard
         
-        for player_name, player in self.player_dict.items():
-            if player_name == turnPlayer:
-                player.set_hand_out_card(Card(turnCard))
-                player.set_action(Card(turnCard))
-                message = "Turn Player:{} hand out {} State: {}; Action:{}".format(player_name, turnCard, player.state, player.action)
-                self.system_log.show_message(message)
-                self.system_log.save_logs(message)
-            else:
-                player.set_used_card(Card(turnCard))
-                message = "Others:{} mark {} used. State: {}".format(player_name, turnCard, player.state)
-                self.system_log.show_message(message)
-                self.system_log.save_logs(message)
+        if self.player_name == turnPlayer:
+            player_sample.set_hand_out_card(Card(turnCard))
+            player_sample.set_action(Card(turnCard))
+            message = "My Turn:{}. Hand out {} State: {}; Action:{}".format(turnPlayer, turnCard, player_sample.state, player_sample.action)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+        else:
+            player_sample.set_used_card(Card(turnCard))
+            message = "Other's Turn:{}. Mark {} used. State: {}".format(turnPlayer, turnCard, player_sample.state)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
 
         opp_pick={}
         opp_pick[turnPlayer]=Card(turnCard)
@@ -403,45 +394,59 @@ class HeartPlayBot(PokerBot):
             players = data['players']
             for player in players:
                 player_name = player['playerName']
-                player_state = self.player_dict[player_name]
-                player_state.set_score_cards(player['scoreCards'])
-                message = "Player:{}, scoreCards:{} State:{}".format(player_name, player['scoreCards'], player_state.state)
-                self.system_log.show_message(message)
-                self.system_log.save_logs(message)
-                if "TC" in player['scoreCards']:
-                    player_state.set_TC_eaten()
-                    message = "Player:{}, TC eaten:{} State:{}".format(player_name, player['scoreCards'], player_state.state)
+                if player_name == self.player_name:
+                    player_sample = self.player_dict[player_name]
+                    player_sample.set_score_cards(player['scoreCards'])
+                    message = "Player:{}, scoreCards:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
                     self.system_log.show_message(message)
                     self.system_log.save_logs(message)
+                    if "TC" in player['scoreCards']:
+                        player_sample.set_TC_eaten()
+                        message = "Player:{}, TC eaten:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
+                        self.system_log.show_message(message)
+                        self.system_log.save_logs(message)
+            
+            # Later: reward can do some regularization to know very good and very bad
+            sum_r = [r for r in round_scores.values()]
+            avg_r = sum(sum_r)/len(sum_r)
             for key in round_scores.keys():
                 message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
-                self.player_dict[key].set_reward(round_scores.get(key))
-                message = "Player name:{}, state {}, action {}, reward {} ".format(key,self.player_dict[key].state, self.player_dict[key].action, self.player_dict[key].reward)
-                self.system_log.show_message(message)
-                self.system_log.save_logs(message)
-            self.player_dict[key].memorize()
+                if key == self.player_name:
+                    self.player_dict[self.player_name].set_reward(round_scores.get(key))
+                    message = "Player name:{}, state {}, action {}, reward {} ".format(key,self.player_dict[self.player_name].state, self.player_dict[self.player_name].action, self.player_dict[self.player_name].reward)
+                    self.system_log.show_message(message)
+                    self.system_log.save_logs(message)
+                    self.player_dict[self.player_name].memorize()
         except Exception as e:
             self.system_log.show_message(e)
-            self.system_log.save_logs(e)
+            self.system_log.save_errors(e)
 
     def deal_end(self,data):
         self.my_hand_cards=[]
         self.expose_card = False
         deal_scores,initial_cards,receive_cards,picked_cards=self.get_deal_scores(data)
-        message = "Player name:{}, Pass Cards:{}".format(self.player_name, self.my_pass_card)
+        message = "Me:{}, Pass Cards:{}".format(self.player_name, self.my_pass_card)
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
         for key in deal_scores.keys():
-            self.player_dict[key].set_total_rewards(deal_scores.get(key))
-            message = "Player name:{}, Deal score:{}".format(key,deal_scores.get(key))
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
-            self.set_allplayers_episodes(self.player_dict[key])
+            if key == self.player_name:
+                self.player_dict[key].set_total_rewards(deal_scores.get(key))
+                self.set_player_episodes(self.player_dict[key])
+                message = "Me:{}, Deal score:{}".format(key,deal_scores.get(key))
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
+                message = "Episode states:{}, Episode actions:{}, Episode rewards:{}".format(self.player_dict[key].states,self.player_dict[key].actions,self.player_dict[key].rewards)
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
            
-        self.global_agent.train(self.players_episodes)
-        
+        self.global_agent.train(self.player_episodes)
+        message = "Episode Trained with thread"
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
+
+
         for key in initial_cards.keys():
             message = "Player name:{}, Initial cards:{}, Receive cards:{}, Picked cards:{}".format(key, initial_cards.get(key),receive_cards.get(key),picked_cards.get(key))
             self.system_log.show_message(message)

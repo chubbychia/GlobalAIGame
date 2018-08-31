@@ -15,3 +15,5 @@ class Log(object):
             print(msg)
     def save_logs(self,msg):
         self.logger.info(msg)
+    def save_errors(self,msg):
+        self.logger.error(msg)

@@ -39,6 +39,7 @@ class Player(object):
             self.state[13 * s_card.suit_index + s_card.value - 2] = -2
 
     def set_action(self, action_card): # Card
+        self.action=np.zeros(self.action_size) 
         self.action[13 * action_card.suit_index + action_card.value - 2] = 1
 
     def set_reward(self, round_score): # int. Accumulative by our calculation
@@ -47,10 +48,19 @@ class Player(object):
     def set_total_rewards(self, total_score): # int
         self.total_rewards = total_score
 
+    def reset_sample(self):
+        self.state = np.zeros(self.state_size) #54
+        self.action = np.zeros(self.action_size) #52
+        self.reward = 0
+        self.total_rewards = 0
+        self.states = []
+        self.rewards = []
+        self.actions = []
+        
     # save <s, a ,r> of each step
     # this is used for calculating discounted rewards
     def memorize(self):
-        self.states.append(self.state)
+        self.states.append(self.state.copy())
         self.actions.append(self.action)
         self.rewards.append(self.reward)
     

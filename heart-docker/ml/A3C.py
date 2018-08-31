@@ -30,13 +30,14 @@ class A3CAgent:
         self.critic_lr = 0.001
         self.discount_factor = .99
         self.hidden1, self.hidden2 = 30, 30
-        self.threads = 4
+        self.threads = 1
 
         current_folder = os.path.dirname(os.path.abspath(__file__))
-        actor_path = os.path.join(current_folder, "save_model/trend_hearts_actor.h5")
-        critic_path = os.path.join(current_folder, "save_model/trend_hearts_critic.h5")
+        actor_path = os.path.join(current_folder, "./save_model/trend_hearts_actor.h5")
+        critic_path = os.path.join(current_folder, "./save_model/trend_hearts_critic.h5")
         if os.path.exists(actor_path) and os.path.exists(critic_path): 
             self.load_model('./save_model/trend_hearts')
+            print('!!!!!!!!!!LOAD MODEL!!!!!!!!!!')
         # create model for actor and critic network
         else:
             self.actor, self.critic = self.build_model()
@@ -118,15 +119,16 @@ class A3CAgent:
 
         for agent in agents:
             agent.start()
-
-        while True:
-            time.sleep(10)
-
-            plot = scores[:]
-            pylab.plot(range(len(plot)), plot, 'b')
-            pylab.savefig("./save_graph/trend_hearts.png")
-
-            self.save_model('./save_model/trend_hearts/')
+        
+        self.save_model('./save_model/trend_hearts')
+        
+        #If batch training 
+        #while True:
+        #    time.sleep(10)
+        #    plot = scores[:]
+        #    pylab.plot(range(len(plot)), plot, 'b')
+        #    pylab.savefig("./save_graph/trend_hearts.png")
+           
 
     def save_model(self, name):
         self.actor.save_weights(name + "_actor.h5")
