@@ -9,7 +9,7 @@ from utils.log import Log
 
 
 IS_DEBUG=False
-IS_SAVE_DATA=False
+IS_SAVE_DATA=True
 system_log=Log(IS_DEBUG)
 
 

@@ -14,14 +14,14 @@ def load_training_data(fname):
             while True:
                 try:
                     l = pickle.load(f)
-                    s_array=l[0]
-                    if isinstance(s_array, np.ndarray):
-                        print(s_array)
+                    # s_array=l[0]
+                    # if isinstance(s_array, np.ndarray):
+                    #     print(s_array)
                     obj.append(l)
 
                 except EOFError:
                     break
-        #print("load: {}".format(obj))
+        print("load: {}".format(obj))
     else:
         print("No such training file {}".format(TRAINDATA_PATH))
     return obj
@@ -59,5 +59,5 @@ if __name__ == "__main__":
     epi = str([states]+[actions]+[rewards])
     
     #save_append_training_data(epi)
-    load_training_data('2018-08-31')
+    load_training_data('2018-09-03')
 
