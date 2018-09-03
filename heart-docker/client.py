@@ -8,7 +8,8 @@ from bot import HeartPlayBot
 from utils.log import Log
 
 
-IS_DEBUG=True
+IS_DEBUG=False
+IS_SAVE_DATA=False
 system_log=Log(IS_DEBUG)
 
 
@@ -23,10 +24,12 @@ class PokerSocket(object):
 
     # Concept: 4 players, 4 view points. 1 episode can be 4 epi samples if change view point
     def takeAction(self,action, data):
+        if action=="new_game":
+            self.poker_bot.new_game(data)
         # unit : episode
         # init also reset Player
         # init state (init value = 0)
-        if action=="new_deal":
+        elif action=="new_deal":
             self.poker_bot.new_deal(data)
         elif action=="new_round":
             self.poker_bot.new_round(data)
@@ -143,7 +146,7 @@ def main():
         player_number=777
         token="12345678"
         connect_url="ws://10.1.229.94:8080/"
-    sample_bot=HeartPlayBot(player_name, system_log)
+    sample_bot=HeartPlayBot(player_name, system_log, IS_SAVE_DATA)
     myPokerSocket=PokerSocket(player_name,player_number,token,connect_url,sample_bot)
     myPokerSocket.doListen()
 

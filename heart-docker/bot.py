@@ -4,7 +4,9 @@ from utils.log import Log
 from ml.A3C import A3CAgent, Agent
 from player import Player
 import collections
-
+import datetime
+import os
+import pickle
 class PokerBot(object):
 
     def __init__(self, player_name, system_log):
@@ -172,12 +174,18 @@ class PokerBot(object):
    
 class HeartPlayBot(PokerBot):
 
-    def __init__(self,name,system_log):
+    def __init__(self,name,system_log,IS_SAVE_DATA):
         super(HeartPlayBot,self).__init__(name, system_log)
         self.my_hand_cards=[]
         self.expose_card=False
         self.my_pass_card=[]
-       
+        self.is_save_data = IS_SAVE_DATA
+
+    def new_game(self,data):
+        message="============== New Game =============="
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
+
     
     def new_deal(self,data):
         self.my_hand_cards=self.get_cards(data)
@@ -407,8 +415,8 @@ class HeartPlayBot(PokerBot):
                         self.system_log.save_logs(message)
             
             # Later: reward can do some regularization to know very good and very bad
-            sum_r = [r for r in round_scores.values()]
-            avg_r = sum(sum_r)/len(sum_r)
+            #sum_r = [r for r in round_scores.values()]
+            #avg_r = sum(sum_r)/len(sum_r)
             for key in round_scores.keys():
                 message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
                 self.system_log.show_message(message)
@@ -437,20 +445,36 @@ class HeartPlayBot(PokerBot):
                 message = "Me:{}, Deal score:{}".format(key,deal_scores.get(key))
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
-                message = "Episode states:{}, Episode actions:{}, Episode rewards:{}".format(self.player_dict[key].states,self.player_dict[key].actions,self.player_dict[key].rewards)
-                self.system_log.show_message(message)
-                self.system_log.save_logs(message)
-           
+                #message = "Episode states:{}, Episode actions:{}, Episode rewards:{}".format(self.player_dict[key].states,self.player_dict[key].actions,self.player_dict[key].rewards)
+                #self.system_log.show_message(message)
+                #self.system_log.save_logs(message)
+                episode_s_a_r = [self.player_dict[key].states] + [self.player_dict[key].actions] + [self.player_dict[key].rewards]
+                if self.is_save_data:
+                    self.save_append_training_data(episode_s_a_r)
+                
         self.global_agent.train(self.player_episodes)
-        message = "Episode Trained with thread"
+        
+        message = "Episode saved and trained with thread"
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
-
 
         for key in initial_cards.keys():
             message = "Player name:{}, Initial cards:{}, Receive cards:{}, Picked cards:{}".format(key, initial_cards.get(key),receive_cards.get(key),picked_cards.get(key))
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
+
+    def save_append_training_data(self, episode): 
+        now = datetime.datetime.now()
+        current_folder = os.path.dirname(os.path.abspath(__file__))
+        TRAINDATA_PATH = os.path.join(current_folder, 'training/'+ str(now)[:10] + '.pkl')
+        directory = os.path.dirname(TRAINDATA_PATH)
+        
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        
+        if os.path.exists(directory):
+            with open(TRAINDATA_PATH,'ab') as f:
+                pickle.dump(episode, f)
 
     def game_over(self,data):
         game_scores = self.get_game_scores(data)
