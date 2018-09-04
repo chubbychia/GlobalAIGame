@@ -9,7 +9,7 @@ from utils.log import Log
 
 
 IS_DEBUG=False
-IS_SAVE_DATA=True
+IS_SAVE_DATA=False
 system_log=Log(IS_DEBUG)
 
 
@@ -29,6 +29,7 @@ class PokerSocket(object):
         # unit : episode
         # init also reset Player
         # init state (init value = 0)
+        # init strategy
         elif action=="new_deal":
             self.poker_bot.new_deal(data)
         elif action=="new_round":
@@ -60,10 +61,11 @@ class PokerSocket(object):
                            "cards": export_cards
                        }
                     }))
-         # set 1 to idx 52(AH) 
+         # set 1 to exposed card 
         elif action=="expose_cards_end":
             self.poker_bot.expose_cards_end(data)
         # predict
+        # set action
         elif action=="your_turn":
             pick_card = self.poker_bot.pick_card(data)
             message="Send message:{}".format(json.dumps(
@@ -93,9 +95,11 @@ class PokerSocket(object):
         elif action=="turn_end":
             self.poker_bot.turn_end(data)
         # set -2 to score cards location
+        # set 3 to all dumpted cards (== 2)
         # set TC eaten if it shows -> idx 53 (TC) to 1
         # set reward 
         # memorize the this round
+        # reset strategy
         elif action=="round_end":
             self.poker_bot.round_end(data)
         # train

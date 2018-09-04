@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from utils.poker import Card
 from utils.log import Log
+from utils.strategy import Strategy
 from ml.A3C import A3CAgent, Agent
 from player import Player
 import collections
@@ -21,11 +22,11 @@ class PokerBot(object):
                            Card("AH")}
         self.system_log = system_log
         self.state_size = 54
-        self.action_size = 52
+        self.action_size =  12 # strategy amount
         self.player_dict = collections.defaultdict(list)
         self.global_agent = A3CAgent(self.state_size, self.action_size)
         self.player_episodes = []
-
+        self.strategy = None
     #@abstractmethod
     def new_deal(self,data):
         err_msg = self.__build_err_msg("receive_cards")
@@ -54,8 +55,8 @@ class PokerBot(object):
     def game_over(self,data):
         err_msg = self.__build_err_msg("game_over")
         raise NotImplementedError(err_msg)
-    def pick_history(self,data,is_timeout,pick_his):
-        err_msg = self.__build_err_msg("pick_history")
+    def show_pick_history(self,data,is_timeout,pick_his):
+        err_msg = self.__build_err_msg("show_pick_history")
         raise NotImplementedError(err_msg)
 
     def reset_card_his(self):
@@ -191,31 +192,13 @@ class HeartPlayBot(PokerBot):
         self.my_hand_cards=self.get_cards(data)
         # init Player
         self.player_dict[self.player_name] = Player(self.player_name,self.state_size,self.action_size)
-        message="New Deal: No.{}".format(data['dealNumber'])
+        # init Strategy
+        self.strategy = Strategy()
+        message="New Deal: No.{}. Init Player and Strategy".format(data['dealNumber'])
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
 
-    def _sorting_desc(self, cards):
-        def _quicksort(unsort_cards):
-            if len(unsort_cards) <= 1:
-                return unsort_cards
-            else:
-                last_idx = len(unsort_cards)-1
-                pivot = unsort_cards[last_idx] 
-                rest_of_cards = unsort_cards[:last_idx]
-                minor = []
-                larger = []
-                pivotlist = []
-                for card in rest_of_cards:
-                    if pivot.value > card.value:
-                        minor.append(card)
-                    else:
-                        larger.append(card)                  
-                pivotlist.append(pivot)
-                return _quicksort(larger)+pivotlist+_quicksort(minor)
-        
-        return _quicksort(cards)
-        
+  
     def pass_cards(self,data):
         cards = data['self']['cards']
         self.my_hand_cards = []
@@ -240,7 +223,7 @@ class HeartPlayBot(PokerBot):
             if count == 3:
                 break
         i=0
-        asc_suit_amount = sorted(suit_dict.items(), key=lambda d: d[1]) #asc dict value
+        asc_suit_amount = sorted(suit_dict.items(), key=lambda d: d[1]) #asc :[('S', 0), ('D', 1), ('C', 5), ('H', 7)]
         while count < 3:
             minn = asc_suit_amount[i][0]
             for card in self.my_hand_cards: 
@@ -259,40 +242,48 @@ class HeartPlayBot(PokerBot):
 
     def pick_card(self,data):
         me = data['self']['playerName'] 
+        cadidate_cards=data['self']['candidateCards']
         if self.player_dict[me]:
-            predict_card_idx = self.global_agent.predict_action(self.player_dict[me].state)
-        message = "Me:{}, Predict Result:{}".format(me, predict_card_idx)
+            # set strategy candidate cards
+            self.strategy.set_candidates(cadidate_cards)
+            out_round = []
+            # print("candidates_cards {}".format(cadidate_cards))
+            for player_name, out_turn_card in self.round_cards.items():
+                out_round.append(out_turn_card)
+            # set strategy round cards
+            self.strategy.set_roundcards(out_round)
+            # print("round_cards {}".format(out_round))
+            predict_strategy_num = self.global_agent.predict_action(self.player_dict[me].state)
+        message = "Me:{}, Predict Startegy No.:{}".format(me, predict_strategy_num)
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
-        suit = predict_card_idx // 13
-        value = predict_card_idx % 13 + 2
-        suit_value_dict = {10:"T", 11:"J", 12:"Q", 13:"K", 14:"A", 2:"2", 3:"3", 4:"4", 5:"5", 6:"6", 7:"7", 8:"8", 9:"9"}
-        suit_index_dict = {0:"S", 1:"C", 2:"H", 3:"D"}
-        card_string = suit_value_dict[value] + suit_index_dict[suit]
+        predict_card, actual_action = self.strategy.dispatcher(predict_strategy_num)
+        # set the chosen action
+        self.player_dict[me].set_action(actual_action)
+        card_string = predict_card.toString()
         message = "Me:{}, Predict Action:{}".format(me, card_string)
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
-        cadidate_cards=data['self']['candidateCards'] # Action Candidates
-        if card_string not in cadidate_cards:
-            cards = data['self']['cards']
-            self.my_hand_cards = []
-            for card_str in cards:
-                card = Card(card_str)
-                self.my_hand_cards.append(card)
-            message = "My Cards:{}".format(self.my_hand_cards)
-            self.system_log.show_message(message)
-            card_index=0
-            message = "Pick Card Event Content:{}".format(data)
-            self.system_log.show_message(message)
-            message = "Candidate Cards:{}".format(cadidate_cards)
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
-            message = "Pick Card:{}".format(cadidate_cards[card_index])
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
-            return cadidate_cards[card_index]
-        else:
-            return card_string
+        # if card_string not in cadidate_cards:
+        #     cards = data['self']['cards']
+        #     self.my_hand_cards = []
+        #     for card_str in cards:
+        #         card = Card(card_str)
+        #         self.my_hand_cards.append(card)
+        #     message = "My Cards:{}".format(self.my_hand_cards)
+        #     self.system_log.show_message(message)
+        #     card_index=len(cadidate_cards)-1 # pick smallest
+        #     message = "Pick Card Event Content:{}".format(data)
+        #     self.system_log.show_message(message)
+        #     message = "Candidate Cards:{}".format(cadidate_cards)
+        #     self.system_log.show_message(message)
+        #     self.system_log.save_logs(message)
+        #     message = "Pick Card:{}".format(cadidate_cards[card_index])
+        #     self.system_log.show_message(message)
+        #     self.system_log.save_logs(message)
+        #     return cadidate_cards[card_index]
+        # else:
+        return card_string
 
     def expose_my_cards(self,yourcards):
         expose_card=[]
@@ -369,17 +360,17 @@ class HeartPlayBot(PokerBot):
                 current_cards=player['cards']
                 for card in current_cards:
                     self.players_current_picked_cards.append(Card(card)) # self left hand cards
-        self.round_cards[turnPlayer]=Card(turnCard) # turnPlayer hand out turnCard
+        
+        self.round_cards[turnPlayer]=Card(turnCard) # turnPlayer hand out turnCard. keep round_cards here {'P1':'3C', 'P2':'8C'}
         
         if self.player_name == turnPlayer:
-            player_sample.set_hand_out_card(Card(turnCard))
-            player_sample.set_action(Card(turnCard))
-            message = "My Turn:{}. Hand out {} State: {}; Action:{}".format(turnPlayer, turnCard, player_sample.state, player_sample.action)
+            player_sample.set_turn_card(Card(turnCard))
+            message = "My Turn:{}. Pick {} State: {}".format(turnPlayer, turnCard, player_sample.state)
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
         else:
-            player_sample.set_used_card(Card(turnCard))
-            message = "Other's Turn:{}. Mark {} used. State: {}".format(turnPlayer, turnCard, player_sample.state)
+            player_sample.set_others_turn_card(Card(turnCard))
+            message = "{}'s Turn:. Pick {}  Mark it used. State: {}".format(turnPlayer, turnCard, player_sample.state)
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
 
@@ -394,20 +385,26 @@ class HeartPlayBot(PokerBot):
             pick_card_list.append(Card(turnCard))
             self.pick_his[turnPlayer] = pick_card_list
         self.round_cards_history.append(Card(turnCard))
-        self.pick_history(data,is_timeout,opp_pick)
+        #self.show_pick_history(data,is_timeout,opp_pick)
 
     def round_end(self,data):
         try:
+            # reset self.round_cards = {}
             round_scores=self.get_round_scores(self.expose_card, data) # we calculate the round scores with AH, TC rules!
+            # reset strategy
+            self.strategy.reset_can_round()
             players = data['players']
             for player in players:
                 player_name = player['playerName']
                 if player_name == self.player_name:
                     player_sample = self.player_dict[player_name]
+                    # set dumpted cards
+                    player_sample.set_dumped_card()
                     player_sample.set_score_cards(player['scoreCards'])
                     message = "Player:{}, scoreCards:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
                     self.system_log.show_message(message)
                     self.system_log.save_logs(message)
+                    # mark TC
                     if "TC" in player['scoreCards']:
                         player_sample.set_TC_eaten()
                         message = "Player:{}, TC eaten:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
@@ -440,7 +437,6 @@ class HeartPlayBot(PokerBot):
         self.system_log.save_logs(message)
         for key in deal_scores.keys():
             if key == self.player_name:
-                self.player_dict[key].set_total_rewards(deal_scores.get(key))
                 self.set_player_episodes(self.player_dict[key])
                 message = "Me:{}, Deal score:{}".format(key,deal_scores.get(key))
                 self.system_log.show_message(message)
@@ -483,7 +479,7 @@ class HeartPlayBot(PokerBot):
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
 
-    def pick_history(self,data,is_timeout,pick_his):
+    def show_pick_history(self,data,is_timeout,pick_his):
         for key in pick_his.keys():
             message = "Player name:{}, Pick card:{}, Is timeout:{}".format(key,pick_his.get(key),is_timeout)
             self.system_log.show_message(message)

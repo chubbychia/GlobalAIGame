@@ -8,10 +8,9 @@ class Player(object):
         self.state_size = state_size
         self.action_size = action_size
         
-        self.state = np.zeros(self.state_size) #54
-        self.action = np.zeros(self.action_size) #52
+        self.state = np.zeros(self.state_size)
+        self.action = np.zeros(self.action_size)
         self.reward = 0
-        self.total_rewards = 0
         self.states = []
         self.rewards = []
         self.actions = []
@@ -27,26 +26,28 @@ class Player(object):
             h_card = Card(h)
             self.state[13 * h_card.suit_index + h_card.value - 2] = 1
     
-    def set_hand_out_card(self, out): # Card
+    def set_turn_card(self, out): # Card
         self.state[13 * out.suit_index + out.value - 2] = -1
 
-    def set_used_card(self, used): # Card
+    def set_others_turn_card(self, used): # Card
         self.state[13 * used.suit_index + used.value - 2] = 2
+
+    def set_dumped_card(self): # Card
+        for idx in range(self.state_size):
+            if self.state[idx] == 2:
+                self.state[idx] = 3
 
     def set_score_cards(self, scores): # list
         for s in scores:
             s_card = Card(s)
             self.state[13 * s_card.suit_index + s_card.value - 2] = -2
 
-    def set_action(self, action_card): # Card
+    def set_action(self, stategy): # int: stategy no.
         self.action=np.zeros(self.action_size) 
-        self.action[13 * action_card.suit_index + action_card.value - 2] = 1
+        self.action[stategy] = 1
 
     def set_reward(self, round_score): # int. Accumulative by our calculation
         self.reward = round_score
-
-    def set_total_rewards(self, total_score): # int
-        self.total_rewards = total_score
 
     def reset_sample(self):
         self.state = np.zeros(self.state_size) #54
@@ -56,7 +57,7 @@ class Player(object):
         self.states = []
         self.rewards = []
         self.actions = []
-        
+
     # save <s, a ,r> of each step
     # this is used for calculating discounted rewards
     def memorize(self):

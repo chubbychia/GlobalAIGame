@@ -90,6 +90,7 @@ class A3CAgent:
         optimizer = Adam(lr=self.actor_lr)
         updates = optimizer.get_updates(self.actor.trainable_weights, [], actor_loss)
         train = K.function([self.actor.input, action, advantages], [], updates=updates)
+    
         return train
 
     # make loss function for Value approximation
@@ -116,7 +117,7 @@ class A3CAgent:
             partition = len(player_episode)//thread
             agents = [Agent(player_episode[partition*i : partition*(i+1) if partition*(i+2) < len(player_episode) else len(player_episode)], self.actor, self.critic, self.optimizer, self.discount_factor) for i in range(thread)]
         else:
-            agents = [Agent(player_episode[0], self.actor, self.critic, self.optimizer, self.discount_factor)]
+            agents = [Agent(player_episode, self.actor, self.critic, self.optimizer, self.discount_factor)]
         
         for agent in agents:
             agent.start()
