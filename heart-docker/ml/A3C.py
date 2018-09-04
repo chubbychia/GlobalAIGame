@@ -1,7 +1,6 @@
 import threading
 import numpy as np
 import tensorflow as tf
-import pylab
 import time
 import os
 from keras.layers import Dense, Input
