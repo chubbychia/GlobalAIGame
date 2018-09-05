@@ -243,48 +243,53 @@ class HeartPlayBot(PokerBot):
     def pick_card(self,data):
         me = data['self']['playerName'] 
         cadidate_cards=data['self']['candidateCards']
+        # set strategy candidate cards
+        self.strategy.set_candidates(cadidate_cards)
+        out_round = []
+        # print("candidates_cards {}".format(cadidate_cards))
+        for player_name, out_turn_card in self.round_cards.items():
+            out_round.append(out_turn_card)
+        # set strategy round cards
+        self.strategy.set_roundcards(out_round)
+        # print("round_cards {}".format(out_round))
         if self.player_dict[me]:
-            # set strategy candidate cards
-            self.strategy.set_candidates(cadidate_cards)
-            out_round = []
-            # print("candidates_cards {}".format(cadidate_cards))
-            for player_name, out_turn_card in self.round_cards.items():
-                out_round.append(out_turn_card)
-            # set strategy round cards
-            self.strategy.set_roundcards(out_round)
-            # print("round_cards {}".format(out_round))
             predict_strategy_num = self.global_agent.predict_action(self.player_dict[me].state)
-        message = "Me:{}, Predict Startegy No.:{}".format(me, predict_strategy_num)
-        self.system_log.show_message(message)
-        self.system_log.save_logs(message)
-        predict_card, actual_action = self.strategy.dispatcher(predict_strategy_num)
-        # set the chosen action
-        self.player_dict[me].set_action(actual_action)
-        card_string = predict_card.toString()
-        message = "Me:{}, Predict Action:{}".format(me, card_string)
-        self.system_log.show_message(message)
-        self.system_log.save_logs(message)
-        # if card_string not in cadidate_cards:
-        #     cards = data['self']['cards']
-        #     self.my_hand_cards = []
-        #     for card_str in cards:
-        #         card = Card(card_str)
-        #         self.my_hand_cards.append(card)
-        #     message = "My Cards:{}".format(self.my_hand_cards)
-        #     self.system_log.show_message(message)
-        #     card_index=len(cadidate_cards)-1 # pick smallest
-        #     message = "Pick Card Event Content:{}".format(data)
-        #     self.system_log.show_message(message)
-        #     message = "Candidate Cards:{}".format(cadidate_cards)
-        #     self.system_log.show_message(message)
-        #     self.system_log.save_logs(message)
-        #     message = "Pick Card:{}".format(cadidate_cards[card_index])
-        #     self.system_log.show_message(message)
-        #     self.system_log.save_logs(message)
-        #     return cadidate_cards[card_index]
-        # else:
-        return card_string
-
+            message = "Me:{}, Predict Startegy No.{}".format(me, predict_strategy_num)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            predict_card, actual_action = self.strategy.dispatcher(predict_strategy_num)
+            # set the chosen action
+            message = "Me:{}, Startegy Fallback to No.{}".format(me, actual_action)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            self.player_dict[me].set_action(actual_action)
+            message = "Me:{}, Set Action: {}".format(me, self.player_dict[me].action)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            card_string = predict_card.toString()
+            message = "Me:{}, Predict Card:{}".format(me, card_string)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            return card_string
+        else:
+            cards = data['self']['cards']
+            self.my_hand_cards = []
+            for card_str in cards:
+                card = Card(card_str)
+                self.my_hand_cards.append(card)
+            message = "My Cards:{}".format(self.my_hand_cards)
+            self.system_log.show_message(message)
+            card_index=len(cadidate_cards)-1 # pick smallest
+            message = "Pick Card Event Content:{}".format(data)
+            self.system_log.show_message(message)
+            message = "Candidate Cards:{}".format(cadidate_cards)
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            message = "Pick Card:{}".format(cadidate_cards[card_index])
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            return cadidate_cards[card_index]
+        
     def expose_my_cards(self,yourcards):
         expose_card=[]
         for card in self.my_hand_cards:

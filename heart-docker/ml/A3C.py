@@ -24,7 +24,8 @@ class A3CAgent:
         # these are hyper parameters for the A3C
         self.actor_lr = 0.001
         self.critic_lr = 0.001
-        self.discount_factor = .99
+        # modifiy to no discount becase hearts has no such phenomenon
+        self.discount_factor = 1
         self.hidden1, self.hidden2 = 30, 30
         self.threads = 1
         self.is_train_mode = is_train_mode
