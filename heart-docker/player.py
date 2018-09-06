@@ -35,12 +35,17 @@ class Player(object):
     def set_dumped_card(self): # Card
         for idx in range(self.state_size):
             if self.state[idx] == 2:
-                self.state[idx] = 3
-
+                self.state[idx] = -1
+    
     def set_score_cards(self, scores): # list
         for s in scores:
             s_card = Card(s)
-            self.state[13 * s_card.suit_index + s_card.value - 2] = -2
+            self.state[13 * s_card.suit_index + s_card.value - 2] = 3
+    
+    def set_others_score_cards(self, oppo_label, scores): # list
+        for s in scores:
+            s_card = Card(s)
+            self.state[13 * s_card.suit_index + s_card.value - 2] = oppo_label # 4 / 5 / 6 
 
     def set_action(self, stategy): # int: stategy no.
         self.action=np.zeros(self.action_size) 

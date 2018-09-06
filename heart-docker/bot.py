@@ -28,7 +28,10 @@ class PokerBot(object):
         self.global_agent = A3CAgent(self.state_size, self.action_size)
         self.player_episodes = []
         self.strategy = None
-    #@abstractmethod
+    
+    def __build_err_msg(self, msg):
+        return "Your bot does not implement [ {0} ] method".format(msg)
+
     def new_deal(self,data):
         err_msg = self.__build_err_msg("receive_cards")
         raise NotImplementedError(err_msg)
@@ -428,16 +431,16 @@ class HeartPlayBot(PokerBot):
         
         self.round_cards[turnPlayer]=Card(turnCard) # turnPlayer hand out turnCard. keep round_cards here {'P1':'3C', 'P2':'8C'}
         
-        if self.player_name == turnPlayer:
-            player_sample.set_turn_card(Card(turnCard))
-            message = "My Turn:{}. Pick {} State: {}".format(turnPlayer, turnCard, player_sample.state)
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
-        else:
-            player_sample.set_others_turn_card(Card(turnCard))
-            message = "{}'s Turn:. Pick {}  Mark it used. State: {}".format(turnPlayer, turnCard, player_sample.state)
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
+        # if self.player_name == turnPlayer:
+        #     player_sample.set_turn_card(Card(turnCard))
+        #     message = "My Turn:{}. Pick {} State: {}".format(turnPlayer, turnCard, player_sample.state)
+        #     self.system_log.show_message(message)
+        #     self.system_log.save_logs(message)
+        # else:
+        player_sample.set_others_turn_card(Card(turnCard))
+        message = "{}'s Turn:. Pick {}  Mark it used. State: {}".format(turnPlayer, turnCard, player_sample.state)
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
 
         opp_pick={}
         opp_pick[turnPlayer]=Card(turnCard)
@@ -459,25 +462,30 @@ class HeartPlayBot(PokerBot):
             # reset strategy
             self.strategy.reset_can_round()
             players = data['players']
+            player_sample = self.player_dict[self.player_name]
+            me_label = 3
+            # set dumpted cards
+            player_sample.set_dumped_card()
             for player in players:
                 player_name = player['playerName']
                 if player_name == self.player_name:
-                    player_sample = self.player_dict[player_name]
-                    # set dumpted cards
-                    player_sample.set_dumped_card()
                     player_sample.set_score_cards(player['scoreCards'])
-                    message = "Player:{}, scoreCards:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
-                    self.system_log.show_message(message)
-                    self.system_log.save_logs(message)
                     # mark TC
                     if "TC" in player['scoreCards']:
                         player_sample.set_TC_eaten()
-                        message = "Player:{}, TC eaten:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
+                        message = "Me:{}, TC eaten:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
                         self.system_log.show_message(message)
                         self.system_log.save_logs(message)
+                else:
+                    me_label += 1
+                    player_sample.set_others_score_cards(me_label, player['scoreCards'])
+                message = "Player:{}, scoreCards:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
+                self.system_log.show_message(message)
+                self.system_log.save_logs(message)
+
             
             # Reward Design:
-            # If opponent is shooting the moon -> my_score - shooting_score as penalty
+            # If opponent is shooting the moon -> my_score - shooting_score//3 as penalty
             # If other cases: my_score * my_rank
             shooting_the_moon = [r for r in round_scores.values() if r > 0]
             asc_score_sort = sorted(round_scores.items(), key=lambda d: d[1]) 
@@ -489,7 +497,7 @@ class HeartPlayBot(PokerBot):
                     my_score = round_scores.get(key)
                     my_rank = self._get_score_rank(self.player_name, asc_score_sort)
                     if shooting_the_moon:
-                        my_score = my_score - shooting_the_moon[0]
+                        my_score = my_score - shooting_the_moon[0]//3
                     else:
                         my_score = my_score * my_rank
                     self.player_dict[self.player_name].set_reward(my_score)

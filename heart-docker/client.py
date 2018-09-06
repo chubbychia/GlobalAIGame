@@ -22,7 +22,7 @@ class PokerSocket(object):
         self.poker_bot=poker_bot
         self.token=token
 
-    # Concept: 4 players, 4 view points. 1 episode can be 4 epi samples if change view point
+  
     def takeAction(self,action, data):
         if action=="new_game":
             self.poker_bot.new_game(data)
@@ -89,13 +89,12 @@ class PokerSocket(object):
                     }
                 }))
 
-        # set -1 to self handed card (turnCard, turnPlayer)
-        # set 2 to others handed card
-        # set action to this turn
+        # set 2 to handed out card in the player's turn
         elif action=="turn_end":
             self.poker_bot.turn_end(data)
-        # set -2 to score cards location
-        # set 3 to all dumpted cards (== 2)
+        # set -1 to all dumpted cards
+        # set 3 to my score cards location over dumpted cards
+        # set 4/5/6 to oppo1/2/3 score cards location over dumpted cards
         # set TC eaten if it shows -> idx 53 (TC) to 1
         # set reward 
         # memorize the this round
