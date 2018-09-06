@@ -4,6 +4,7 @@ from utils.log import Log
 from utils.strategy import Strategy
 from ml.A3C import A3CAgent, Agent
 from player import Player
+import numpy as np
 import collections
 import datetime
 import os
@@ -416,15 +417,17 @@ class HeartPlayBot(PokerBot):
                         self.system_log.show_message(message)
                         self.system_log.save_logs(message)
             
-            # Later: reward can do some regularization to know very good and very bad
-            #sum_r = [r for r in round_scores.values()]
-            #avg_r = sum(sum_r)/len(sum_r)
+            # Penalty if opponent is shooting the moon
+            shooting_the_moon = [r for r in round_scores.values() if r > 0]
             for key in round_scores.keys():
                 message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
                 if key == self.player_name:
-                    self.player_dict[self.player_name].set_reward(round_scores.get(key))
+                    my_score = round_scores.get(key)
+                    if shooting_the_moon:
+                        my_score = my_score - shooting_the_moon[0]
+                    self.player_dict[self.player_name].set_reward(my_score)
                     message = "Player name:{}, state {}, action {}, reward {} ".format(key,self.player_dict[self.player_name].state, self.player_dict[self.player_name].action, self.player_dict[self.player_name].reward)
                     self.system_log.show_message(message)
                     self.system_log.save_logs(message)

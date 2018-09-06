@@ -13,7 +13,7 @@ import pickle
 
 # global variables for threading
 ws_folder = os.path.dirname(os.path.abspath(__file__+"/../"))
-
+model_lock = threading.Lock()
 
 # This is A3C(Asynchronous Advantage Actor Critic) agent(global) 
 class A3CAgent:
@@ -24,8 +24,7 @@ class A3CAgent:
         # these are hyper parameters for the A3C
         self.actor_lr = 0.001
         self.critic_lr = 0.001
-        # modifiy to no discount becase hearts has no such phenomenon
-        self.discount_factor = 1
+        self.discount_factor = 0.99 
         self.hidden1, self.hidden2 = 30, 30
         self.threads = 1
         self.is_train_mode = is_train_mode
@@ -122,14 +121,7 @@ class A3CAgent:
         for agent in agents:
             agent.start()
         
-        time.sleep(2)
-        self.save_model('./save_model/trend_hearts')
         
-       
-    def save_model(self, name):
-        self.actor.save_weights(name + "_actor.h5")
-        self.critic.save_weights(name + "_critic.h5")
-
     def load_model(self, name):
         self.actor.load_weights(name + "_actor.h5")
         self.critic.load_weights(name + "_critic.h5")
@@ -144,11 +136,18 @@ class Agent(threading.Thread):
         self.optimizer = optimizer
         self.discount_factor = discount_factor
     
+    def save_model(self, name):
+        self.actor.save_weights(name + "_actor.h5")
+        self.critic.save_weights(name + "_critic.h5")
+
     # Thread 
     def run(self):
         #print("Number of episode dispatched: {}".format(len(self.player_episodes)))
         for player in self.player_episodes:
             self.train_episode(player)
+            model_lock.acquire()
+            self.save_model('./save_model/trend_hearts')
+            model_lock.release()
 
     # In Policy Gradient, Q function is not available.
     # Instead agent uses sample returns for evaluating policy
