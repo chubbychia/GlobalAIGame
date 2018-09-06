@@ -14,7 +14,7 @@ class Player(object):
         self.states = []
         self.rewards = []
         self.actions = []
-       
+        self.scores = []
     def set_AH_exposed(self):
         self.state[52] = 1
     
@@ -47,7 +47,12 @@ class Player(object):
         self.action[stategy] = 1
 
     def set_reward(self, round_score): # int. Accumulative by our calculation
-        self.reward = round_score
+        if self.scores:
+            r = round_score - self.scores[-1]
+        else:
+            r = round_score
+        self.scores.append(round_score)
+        self.reward = r
 
     def reset_sample(self):
         self.state = np.zeros(self.state_size) #54
@@ -57,6 +62,7 @@ class Player(object):
         self.states = []
         self.rewards = []
         self.actions = []
+        self.scores = []
 
     # save <s, a ,r> of each step
     # this is used for calculating discounted rewards

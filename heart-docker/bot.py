@@ -212,8 +212,8 @@ class HeartPlayBot(PokerBot):
             if card.value > 10:
                 large_cards += 1
         
-        # aggresive
-        if large_cards > 5:
+        # aggressive
+        if large_cards > 4:
             message="Pass card with _shooting_the_moon_pass"
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
@@ -305,12 +305,13 @@ class HeartPlayBot(PokerBot):
         # set strategy candidate cards
         self.strategy.set_candidates(cadidate_cards)
         out_round = []
-        # print("candidates_cards {}".format(cadidate_cards))
         for player_name, out_turn_card in self.round_cards.items():
             out_round.append(out_turn_card)
         # set strategy round cards
         self.strategy.set_roundcards(out_round)
-        # print("round_cards {}".format(out_round))
+        message = "Me:{}, Candidates:{}, Roundcards:{}".format(me, cadidate_cards, out_round)
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
         if self.player_dict[me]:
             predict_strategy_num = self.global_agent.predict_action(self.player_dict[me].state)
             message = "Me:{}, Predict Startegy No.{}".format(me, predict_strategy_num)
