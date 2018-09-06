@@ -9,6 +9,7 @@ and input your team number
 
 ### Reinforcement Learning
 Using A2C algorithm based on https://github.com/rlcode/reinforcement-learning/tree/master/2-cartpole/5-a3c
+
 Encapsulate strategies to action. Total 12 actions.
 Adjust rewards to reflect both score and rank information.
 
