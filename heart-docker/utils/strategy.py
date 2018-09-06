@@ -242,7 +242,7 @@ class Strategy(object):
         return _quicksort(cards)
         
 def _assert_unisuit_candidates(s):
-    print("Candidates:{}, Round Cards:{}".format(s.candidates,s.round_cards))
+    print("Candidates:{}, Round Cards:{}".format(s.candidates, s.round_cards))
     # uni candidates
     # uni_0 : least suit min value
     result, actual_action = s.dispatcher(0)

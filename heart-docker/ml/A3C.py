@@ -24,7 +24,7 @@ class A3CAgent:
         # these are hyper parameters for the A3C
         self.actor_lr = 0.001
         self.critic_lr = 0.001
-        self.discount_factor = 0.99 
+        self.discount_factor = 1 
         self.hidden1, self.hidden2 = 30, 30
         self.threads = 1
         self.is_train_mode = is_train_mode
@@ -140,8 +140,8 @@ class Agent(threading.Thread):
         self.actor.save_weights(name + "_actor.h5")
         self.critic.save_weights(name + "_critic.h5")
         if os.path.exists("/log"):
-            self.actor.save_weights(name + "/trend_hearts_actor.h5")
-            self.critic.save_weights(name + "/trend_hearts_critic.h5")
+            self.actor.save_weights("/log/trend_hearts_actor.h5")
+            self.critic.save_weights("/log/trend_hearts_critic.h5")
 
 
     # Thread 

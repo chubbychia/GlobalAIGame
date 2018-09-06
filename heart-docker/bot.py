@@ -214,15 +214,21 @@ class HeartPlayBot(PokerBot):
         
         # aggresive
         if large_cards > 5:
+            message="Pass card with _shooting_the_moon_pass"
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
             return self._shooting_the_moon_pass(suit_dict)
         # conservative
         else:
-            return self._conservatice_pass(suit_dict)
+            message="Pass card with _conservative_pass"
+            self.system_log.show_message(message)
+            self.system_log.save_logs(message)
+            return self._conservative_pass(suit_dict)
     
-    def _conservatice_pass(self, suit_dict):
+    def _conservative_pass(self, suit_dict):
         return_values=[]
         asc_suit_amount = sorted(suit_dict.items(), key=lambda d: d[1]) #asc :[('S', 0), ('D', 1), ('C', 5), ('H', 7)]
-        min_suit = asc_suit_amount[i][0]
+        min_suit = asc_suit_amount[0][0]
         count=0
         for card in self.my_hand_cards: # already order in desc 
             if card==Card("QS"): # -13
@@ -234,13 +240,23 @@ class HeartPlayBot(PokerBot):
             elif card.suit == min_suit: # pass if it's min suit
                 return_values.append(card.toString())
                 count += 1
-            elif card.suit_index == 2: # pick largest Heart 
+            elif card.suit_index == 2: # pick Heart 
                 return_values.append(card.toString())
-                count += 1
+                count += 1 
             if count == 3:
                 break
-            self.my_pass_card = return_values
-            return return_values
+        
+        if count < 3:
+            second_min_suit = asc_suit_amount[1][0]
+            for card in self.my_hand_cards:
+                if card.suit == second_min_suit: 
+                    return_values.append(card.toString())
+                    count += 1
+                if count == 3:
+                    break
+       
+        self.my_pass_card = return_values
+        return return_values
 
     # Create card set best for shooting the moon
     def _shooting_the_moon_pass(self, suit_dict):
@@ -257,7 +273,7 @@ class HeartPlayBot(PokerBot):
             if count == 3:
                 break
 
-        self.my_pass_card = pass_card_string
+        self.my_pass_card = pass_cards_string
         return pass_cards_string
 
     def _sorting_value_asc(self, cards):
@@ -459,24 +475,54 @@ class HeartPlayBot(PokerBot):
                         self.system_log.show_message(message)
                         self.system_log.save_logs(message)
             
-            # Penalty if opponent is shooting the moon
+            # Reward Design:
+            # If opponent is shooting the moon -> my_score - shooting_score as penalty
+            # If other cases: my_score * my_rank
             shooting_the_moon = [r for r in round_scores.values() if r > 0]
+            asc_score_sort = sorted(round_scores.items(), key=lambda d: d[1]) 
             for key in round_scores.keys():
                 message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
                 if key == self.player_name:
                     my_score = round_scores.get(key)
+                    my_rank = self._get_score_rank(self.player_name, asc_score_sort)
                     if shooting_the_moon:
                         my_score = my_score - shooting_the_moon[0]
+                    else:
+                        my_score = my_score * my_rank
                     self.player_dict[self.player_name].set_reward(my_score)
                     message = "Player name:{}, state {}, action {}, reward {} ".format(key,self.player_dict[self.player_name].state, self.player_dict[self.player_name].action, self.player_dict[self.player_name].reward)
                     self.system_log.show_message(message)
                     self.system_log.save_logs(message)
                     self.player_dict[self.player_name].memorize()
+                    message = "Me:{}, Adjust round score:{}".format(key, my_score)
+                    self.system_log.show_message(message)
+                    self.system_log.save_logs(message)
+              
         except Exception as e:
             self.system_log.show_message(e)
             self.system_log.save_errors(e)
+
+    def _get_score_rank(self, me, asc_score_sort):
+        #asc :[('player1', -25), ('player2', -7), ('player3', 0), ('player4', 0)]
+        rank_num = collections.defaultdict(int)
+        for name, score in asc_score_sort:
+            rank_num[score] += 1
+        rank_bottom = len(rank_num.keys())
+        rank = collections.defaultdict(int)
+        prev_score = None
+        for name, score in asc_score_sort:
+            if prev_score is None:
+                rank[name] = rank_bottom
+            elif prev_score == score:
+                rank[name] = rank_bottom
+            else:
+                rank_bottom -= 1
+                rank[name] = rank_bottom
+            prev_score = score
+        return rank[me]
+
 
     def deal_end(self,data):
         self.my_hand_cards=[]
@@ -504,10 +550,10 @@ class HeartPlayBot(PokerBot):
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
 
-        for key in initial_cards.keys():
-            message = "Player name:{}, Initial cards:{}, Receive cards:{}, Picked cards:{}".format(key, initial_cards.get(key),receive_cards.get(key),picked_cards.get(key))
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
+        # for key in initial_cards.keys():
+        #     message = "Player name:{}, Initial cards:{}, Receive cards:{}, Picked cards:{}".format(key, initial_cards.get(key),receive_cards.get(key),picked_cards.get(key))
+        #     self.system_log.show_message(message)
+        #     self.system_log.save_logs(message)
 
     def save_append_training_data(self, episode): 
         now = datetime.datetime.now()
