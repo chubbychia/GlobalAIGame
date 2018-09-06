@@ -1,9 +1,10 @@
 # Use an official Python runtime as a parent image
 FROM python:3.5-slim
  
-# Set the working directory to /app
+# Set the working directory to /app and save the model to /log
 WORKDIR /app
- 
+WORKDIR /log
+
 # Install the python package we need
 #RUN pip install --trusted-host pypi.python.org websocket-client
 COPY requirements.txt ./

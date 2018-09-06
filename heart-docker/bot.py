@@ -217,7 +217,7 @@ class HeartPlayBot(PokerBot):
             return self._shooting_the_moon_pass(suit_dict)
         # conservative
         else:
-           return self._conservatice_pass(suit_dict)
+            return self._conservatice_pass(suit_dict)
     
     def _conservatice_pass(self, suit_dict):
         return_values=[]

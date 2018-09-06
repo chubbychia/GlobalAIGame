@@ -139,6 +139,10 @@ class Agent(threading.Thread):
     def save_model(self, name):
         self.actor.save_weights(name + "_actor.h5")
         self.critic.save_weights(name + "_critic.h5")
+        if os.path.exists("/log"):
+            self.actor.save_weights(name + "/trend_hearts_actor.h5")
+            self.critic.save_weights(name + "/trend_hearts_critic.h5")
+
 
     # Thread 
     def run(self):
