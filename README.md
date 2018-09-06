@@ -1,7 +1,7 @@
 # GlobalAIGame
 
 ### Execute the code
-$ python client.py <your name> 777 12345566 ws://<your local server>:8080/
+$ python client.py {your-name} 777 12345566 ws://{your local server}:8080/
 
 ### Upload the docker image to trend registry
 $ ./upload_registry.sh
