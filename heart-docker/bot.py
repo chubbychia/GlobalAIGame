@@ -200,46 +200,88 @@ class HeartPlayBot(PokerBot):
         self.system_log.save_logs(message)
 
   
-    def pass_cards(self,data):
+    def pass_cards(self, data):
         cards = data['self']['cards']
         self.my_hand_cards = []
+        suit_dict = collections.defaultdict(int)
+        large_cards = 0
         for card_str in cards:
             card = Card(card_str)
             self.my_hand_cards.append(card)
-        pass_cards=[]
+            suit_dict[card.suit] += 1  # [('S', 5), ('D', 2), ('C', 4), ('H', 2)]
+            if card.value > 10:
+                large_cards += 1
+        
+        # aggresive
+        if large_cards > 5:
+            return self._shooting_the_moon_pass(suit_dict)
+        # conservative
+        else:
+           return self._conservatice_pass(suit_dict)
+    
+    def _conservatice_pass(self, suit_dict):
+        return_values=[]
+        asc_suit_amount = sorted(suit_dict.items(), key=lambda d: d[1]) #asc :[('S', 0), ('D', 1), ('C', 5), ('H', 7)]
+        min_suit = asc_suit_amount[i][0]
         count=0
-        suit_dict = collections.defaultdict(int)
-        for card in self.my_hand_cards:
-            # count every suit's amount
-            suit_dict[card.suit] += 1 
+        for card in self.my_hand_cards: # already order in desc 
             if card==Card("QS"): # -13
-                pass_cards.append(card)
+                return_values.append(card.toString())
                 count+=1
-            elif card==Card("TC"): # - double your score in this deal (except shooting the moon)
-                pass_cards.append(card)
+            elif card==Card("TC"): # double your score in this deal
+                return_values.append(card.toString())
                 count += 1
-            #elif card.suit_index == 2: # pick largest Heart (already desc sort)
-            #    pass_cards.append(card)
-            #    count += 1
+            elif card.suit == min_suit: # pass if it's min suit
+                return_values.append(card.toString())
+                count += 1
+            elif card.suit_index == 2: # pick largest Heart 
+                return_values.append(card.toString())
+                count += 1
             if count == 3:
                 break
-        i=0
-        asc_suit_amount = sorted(suit_dict.items(), key=lambda d: d[1]) #asc :[('S', 0), ('D', 1), ('C', 5), ('H', 7)]
-        while count < 3:
-            minn = asc_suit_amount[i][0]
-            for card in self.my_hand_cards: 
-                if card.suit == minn: # pick the least suit so far
-                    pass_cards.append(card)
-                    count += 1
-                if count == 3:
-                    break
-            i+=1
-                
-        return_values=[]
-        for card in pass_cards:
-            return_values.append(card.toString())
-        self.my_pass_card=return_values
-        return return_values
+            self.my_pass_card = return_values
+            return return_values
+
+    # Create card set best for shooting the moon
+    def _shooting_the_moon_pass(self, suit_dict):
+        asc_hand_cards = self._sorting_value_asc(self.my_hand_cards)
+        pass_cards_string=[]
+        count=0
+        
+        # Pass small cards but don't create any void suit
+        for card in asc_hand_cards: 
+            suit_left = suit_dict[card.suit] - 1 
+            if suit_left > 1:
+                pass_cards_string.append(card.toString())
+                count += 1
+            if count == 3:
+                break
+
+        self.my_pass_card = pass_card_string
+        return pass_cards_string
+
+    def _sorting_value_asc(self, cards):
+        def _quicksort(unsort_cards):
+            if len(unsort_cards) <= 1:
+                return unsort_cards
+            else:
+                last_idx = len(unsort_cards)-1
+                pivot = unsort_cards[last_idx] 
+                rest_of_cards = unsort_cards[:last_idx]
+                minor = []
+                larger = []
+                pivotlist = []
+                for card in rest_of_cards:
+                    if pivot.value > card.value:
+                        minor.append(card)
+                    else:
+                        larger.append(card)
+                pivotlist.append(pivot)
+                return _quicksort(minor)+pivotlist+_quicksort(larger)
+        
+        return _quicksort(cards)
+
+  
 
     def pick_card(self,data):
         me = data['self']['playerName'] 
