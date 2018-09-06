@@ -173,7 +173,7 @@ class Strategy(object):
                 return asc_can[len(asc_can)-1], num
             else: # Candidates are in other suit
                 return self.diff_suit_score()
-        return self.least_suit_max_value()
+        return self.least_suit_min_value()
 
     #10
     def diff_suit_score(self):
@@ -201,7 +201,7 @@ class Strategy(object):
             else: # diff from base
                 return self.non_score_suit_min_value()
         # First
-        return self.most_suit_max_value()
+        return self.most_suit_min_value()
 
 
     def _is_uni_suit(self, cards):
