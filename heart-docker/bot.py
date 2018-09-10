@@ -216,7 +216,7 @@ class HeartPlayBot(PokerBot):
                 large_cards += 1
         
         # aggressive
-        if large_cards > 4:
+        if large_cards > 5:
             message="Pass card with _shooting_the_moon_pass"
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
@@ -543,7 +543,7 @@ class HeartPlayBot(PokerBot):
         for key in deal_scores.keys():
             if key == self.player_name:
                 self.set_player_episodes(self.player_dict[key])
-                message = "Me:{}, Deal score:{}".format(key,deal_scores.get(key))
+                message = "Me:{}, Deal score:{}, Scores history:{}, Rewards history: {}".format(key, deal_scores.get(key), self.player_dict[key].scores, self.player_dict[key].rewards)
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
                 #message = "Episode states:{}, Episode actions:{}, Episode rewards:{}".format(self.player_dict[key].states,self.player_dict[key].actions,self.player_dict[key].rewards)
