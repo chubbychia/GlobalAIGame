@@ -91,7 +91,10 @@ class PokerBot(object):
             return None
 
     def get_round_scores(self,is_expose_card=False,data=None):
+        player_shoot_moon = collections.defaultdict(bool)
         if data!=None:
+            for player in data["players"]:
+                player_shoot_moon[player["playerName"]] = player["shootingTheMoon"]
             players = data['roundPlayers']
             picked_user = players[0] #init
             round_card = self.round_cards.get(picked_user)
@@ -128,6 +131,9 @@ class PokerBot(object):
                 if is_expose_card:
                     round_heart_score*=2
                 round_score+=round_heart_score
+                if player_shoot_moon[key]:
+                    round_score*=4
+                    round_score = abs(round_score)
                 if is_double:
                     round_score*=2
             receive_cards[key] = round_score
@@ -484,32 +490,31 @@ class HeartPlayBot(PokerBot):
                 message = "Player:{}, scoreCards:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
-
-            
             # Reward Design:
             # If opponent is shooting the moon -> my_score - shooting_score//3 as penalty
+            # If I shoot the moon -> shoot moon score * 1, which is as same as below
             # If other cases: my_score * my_rank
-            shooting_the_moon = [r for r in round_scores.values() if r > 0]
+            opp_shooting_the_moon = [reward for name, reward in round_scores.items() if name != self.player_name and reward > 0]
             asc_score_sort = sorted(round_scores.items(), key=lambda d: d[1]) 
             for key in round_scores.keys():
-                message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
+                message = "Player name:{}, Round Score:{}".format(key, round_scores.get(key))
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
                 if key == self.player_name:
-                    my_score = round_scores.get(key)
+                    original_score = round_scores.get(key)
                     my_rank = self._get_score_rank(self.player_name, asc_score_sort)
-                    if shooting_the_moon:
-                        my_score = my_score - shooting_the_moon[0]//3
+                    if opp_shooting_the_moon:
+                        my_score = original_score - opp_shooting_the_moon[0]//3
                     else:
-                        my_score = my_score * my_rank
+                        my_score = original_score * my_rank
+                    message = "Me:{}, Adjust Round Score:{}".format(key, my_score)
+                    self.system_log.show_message(message)
+                    self.system_log.save_logs(message)
                     self.player_dict[self.player_name].set_reward(my_score)
                     message = "Player name:{}, state {}, action {}, reward {} ".format(key,self.player_dict[self.player_name].state, self.player_dict[self.player_name].action, self.player_dict[self.player_name].reward)
                     self.system_log.show_message(message)
                     self.system_log.save_logs(message)
                     self.player_dict[self.player_name].memorize()
-                    message = "Me:{}, Adjust round score:{}".format(key, my_score)
-                    self.system_log.show_message(message)
-                    self.system_log.save_logs(message)
               
         except Exception as e:
             self.system_log.show_message(e)
@@ -545,7 +550,7 @@ class HeartPlayBot(PokerBot):
         for key in deal_scores.keys():
             if key == self.player_name:
                 self.set_player_episodes(self.player_dict[key])
-                message = "Me:{}, Deal score:{}, Scores history:{}, Rewards history: {}".format(key, deal_scores.get(key), self.player_dict[key].scores, self.player_dict[key].rewards)
+                message = "Me:{}, Deal Score:{}, Scores history:{}, Rewards history: {}".format(key, deal_scores.get(key), self.player_dict[key].scores, self.player_dict[key].rewards)
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
                 #message = "Episode states:{}, Episode actions:{}, Episode rewards:{}".format(self.player_dict[key].states,self.player_dict[key].actions,self.player_dict[key].rewards)
