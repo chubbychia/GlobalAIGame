@@ -204,7 +204,7 @@ class HeartPlayBot(PokerBot):
         self.player_dict[self.player_name] = Player(self.player_name,self.state_size,self.action_size)
         # init Strategy
         self.strategy = Strategy()
-        message="New Deal: No.{}. Init Player and Strategy".format(data['dealNumber'])
+        message="============== New Deal:{} ==============".format(data['dealNumber'])
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
 
@@ -323,7 +323,7 @@ class HeartPlayBot(PokerBot):
         self.system_log.save_logs(message)
         if self.player_dict[me]:
             predict_action = self.global_agent.predict_action(self.player_dict[me].state)
-            message = "Me:{}, Predict Startegy No.{}".format(me, predict_action)
+            message = "Me:{}, Predict Strategy No.{}".format(me, predict_action)
             # set action with predict action
             self.player_dict[me].set_action(predict_action)
             self.system_log.show_message(message)
@@ -332,7 +332,7 @@ class HeartPlayBot(PokerBot):
             card_string = predict_card.toString()
             # set action with fallback(action) action could make model forever not know what a strategy affects to a state
             # self.player_dict[me].set_action(actual_action)
-            message = "Me:{}, Startegy Fallback to No.{}".format(me, actual_action)
+            message = "Me:{}, Strategy Fallback to No.{}".format(me, actual_action)
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
             message = "Me:{}, Action Set: {}".format(me, self.player_dict[me].action)
@@ -421,7 +421,7 @@ class HeartPlayBot(PokerBot):
                     self.system_log.save_logs(message)
     
     def new_round(self,data):
-        message="New Round: No.{}".format(data['roundNumber'])
+        message="============== New Round:{} ==============".format(data['roundNumber'])
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
 
@@ -446,7 +446,7 @@ class HeartPlayBot(PokerBot):
         #     self.system_log.save_logs(message)
         # else:
         player_sample.set_others_turn_card(Card(turnCard))
-        message = "{}'s Turn:. Pick {}  Mark it used. State: {}".format(turnPlayer, turnCard, player_sample.state)
+        message = "{}'s Turn:. Pick {}  Mark it used".format(turnPlayer, turnCard)
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
 
@@ -481,7 +481,7 @@ class HeartPlayBot(PokerBot):
                     # mark TC
                     if "TC" in player['scoreCards']:
                         player_sample.set_TC_eaten()
-                        message = "Me:{}, TC eaten:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
+                        message = "Me:{}, TC eaten:{}".format(player_name, player['scoreCards'])
                         self.system_log.show_message(message)
                         self.system_log.save_logs(message)
                 else:
