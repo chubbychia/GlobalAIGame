@@ -12,6 +12,7 @@ import pickle
 class PokerBot(object):
 
     def __init__(self, player_name, system_log):
+        self.game_count = 0
         self.round_cards_history = []
         self.pick_his = {}
         self.round_cards = {}
@@ -586,10 +587,14 @@ class HeartPlayBot(PokerBot):
 
     def game_over(self,data):
         game_scores = self.get_game_scores(data)
+        self.game_count += 1
         for key in game_scores.keys():
             message = "Player name:{}, Game score:{}".format(key, game_scores.get(key))
             self.system_log.show_message(message)
             self.system_log.save_logs(message)
+        message = "============== Game count:{} ==============".format(self.game_count)
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
 
     def show_pick_history(self,data,is_timeout,pick_his):
         for key in pick_his.keys():
