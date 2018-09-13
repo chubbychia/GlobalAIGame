@@ -1,6 +1,10 @@
 import cv2
 import numpy as np
 import math
+
+def logit(msg):
+    print("%s" % msg)
+
 class ImageProcessor(object):
 
     track_index_current = 0
@@ -127,7 +131,7 @@ class ImageProcessor(object):
             matched_distance, matched_length, matched_thetaA, matched_thetaB, matched_coord = matched
             matched_angle = abs(np.pi/2 - matched_thetaB)
 
-        for i in xrange(start_index, len(vectors)):
+        for i in range(start_index, len(vectors)):
             distance, length, thetaA, thetaB, coord = vectors[i]
 
             if (thetaA0 is None or abs(thetaA - thetaA0) <= tolerance) and \
@@ -167,7 +171,7 @@ class ImageProcessor(object):
 
 
     @staticmethod
-    def find_steering_angle_by_line(img, last_steering_angle, debug = True):
+    def find_steering_angle_by_line(img, last_steering_angle, debug=True):
         steering_angle = 0.0
         lines          = ImageProcessor.find_lines(img)
 
@@ -176,7 +180,7 @@ class ImageProcessor(object):
 
         image_height = img.shape[0]
         image_width  = img.shape[1]
-        camera_x     = image_width / 2
+        camera_x     = image_width // 2
         camera_y     = image_height
         vectors      = []
 
@@ -198,7 +202,8 @@ class ImageProcessor(object):
                     cv2.line(img, (x1, y1), (x2, y2), (255, 255, 0), 2)
 
         #the line of the shortest distance and longer length will be the first choice
-        vectors.sort(lambda a, b: cmp(a[0], b[0]) if a[0] != b[0] else -cmp(a[1], b[1]))
+        #vectors.sort(lambda a, b: cmp(a[0], b[0]) if a[0] != b[0] else -cmp(a[1], b[1]))
+        vectors.sort(key=lambda x: (x[0], -x[1]))
 
         best = vectors[0]
         best_distance, best_length, best_thetaA, best_thetaB, best_coord = best
@@ -252,9 +257,9 @@ class ImageProcessor(object):
         if debug:
             #draw the steering direction
             r = 60
-            x = image_width / 2 + int(r * math.cos(steering_angle))
-            y = image_height    - int(r * math.sin(steering_angle))
-            cv2.line(img, (image_width / 2, image_height), (x, y), (255, 0, 255), 2)
+            x = image_width // 2 + int(r * math.cos(steering_angle))
+            y = image_height - int(r * math.sin(steering_angle))
+            cv2.line(img, (image_width // 2, image_height), (x, y), (255, 0, 255), 2)
             logit("line angle: %0.2f, steering angle: %0.2f, last steering angle: %0.2f" % (ImageProcessor.rad2deg(best_thetaA), ImageProcessor.rad2deg(np.pi/2-steering_angle), ImageProcessor.rad2deg(np.pi/2-last_steering_angle)))
 
         return (np.pi/2 - steering_angle)
@@ -354,15 +359,16 @@ class ImageProcessor(object):
         return object_count
 
     @staticmethod
-    def find_steering_angle_by_color(img, last_steering_angle, debug = True):
+    def find_steering_angle_by_color(img, last_steering_angle, debug=True):
         r, g, b      = cv2.split(img)
         image_height = img.shape[0]
         image_width  = img.shape[1]
         camera_x     = image_width / ImageProcessor.left_or_right
         image_sample = slice(int(image_height * 0.2), int(image_height))
-        sr, sg, sb   = r[image_sample, :], g[image_sample, :], b[image_sample, :]     #sampling
+        sr, sg, sb   = r[image_sample, :], g[image_sample, :], b[image_sample, :]     #sampling only sight view
         track_list   = [sr, sg, sb]
         tracks       = list(map(lambda x: len(x[x > 200]), [sr, sg, sb]))
+
         #Check the left wall or right wall
         is_left_wall,is_right_wall=ImageProcessor.wall_detection(sr, sg, sb)
 
@@ -388,9 +394,9 @@ class ImageProcessor(object):
         if debug:
             #draw the steering direction
             r = 60
-            x = image_width / 2 + int(r * math.cos(steering_angle))
+            x = image_width // 2 + int(r * math.cos(steering_angle))
             y = image_height - int(r * math.sin(steering_angle))
-            cv2.line(img, (image_width / 2, image_height), (x, y), (255, 0, 255), 2)
+            cv2.line(img, (image_width // 2, image_height), (x, y), (255, 0, 255), 2)
             logit("steering angle: %0.2f, last steering angle: %0.2f" % (ImageProcessor.rad2deg(steering_angle), ImageProcessor.rad2deg(np.pi/2-last_steering_angle)))
 
         return (np.pi/2 - steering_angle) * 2.0

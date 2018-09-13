@@ -16,13 +16,9 @@ from utils.log import Log
 from utils.data_handler import FileModifier, TrainingDataCollector
 from utils.image_handler import ImageProcessor
 from model.pid import PID
+import cv2
 
 
-IS_DEBUG=False
-TESTING=False
-
-
-system_log=Log(IS_DEBUG)
 def logit(msg):
     print("%s" % msg)
 
@@ -40,7 +36,7 @@ class AutoDrive(object):
     MAX_THROTTLE_HISTORY = 3
     DEFAULT_SPEED = 0.5
 
-    debug = False
+    debug = True
 
     def __init__(self, car,car_training_data_collector, record_folder = None):
         self._record_folder    = record_folder
@@ -56,11 +52,10 @@ class AutoDrive(object):
         self._car.register(self)
         self.current_lap=1
 
-    #When you get the input data
     def on_dashboard(self, src_img, last_steering_angle, speed, throttle, info):
-        track_img     = ImageProcessor.preprocess(src_img) #get track image
+        track_img     = ImageProcessor.preprocess(src_img) # crop 55% upper image  and sharpen the color
         #cur_radian, line_results = self.m_twQTeamImageProcessor.findSteeringAngle(src_img, proc_img)
-
+       
         current_angle = ImageProcessor.find_steering_angle_by_color(track_img, last_steering_angle, debug = self.debug)
         #current_angle = ImageProcessor.find_steering_angle_by_line(track_img, last_steering_angle, debug = self.debug)
         steering_angle,Kp,Ki,Kd = self._steering_pid.update(-current_angle,-current_angle) #Current angle
@@ -116,14 +111,15 @@ class Car(object):
     def register(self, driver):
         self._driver = driver
 
+    # payload
     def on_dashboard(self, dashboard):
-        #normalize the units of all parameters
-        last_steering_angle = np.pi/2 - float(dashboard["steering_angle"]) / 180.0 * np.pi #steel wheel angle
+        # dashboard-> {'steering_angle': '2.2865', 'throttle': '0.0264', 'brakes': '0.0000', 'speed': '0.7527', 'image':'', 'lap': '1', 'time': '12.760', 'status': '0'}
+        last_steering_angle = np.pi/2 - float(dashboard["steering_angle"]) / 180.0 * np.pi # rest of steel wheel radian
         throttle            = float(dashboard["throttle"]) #speed control
         speed               = float(dashboard["speed"]) # current speed
-        img                 = ImageProcessor.bgr2rgb(np.asarray(Image.open(BytesIO(base64.b64decode(dashboard["image"])))))#current image
+        img                 = ImageProcessor.bgr2rgb(np.asarray(Image.open(BytesIO(base64.b64decode(dashboard["image"]))))) # current image
 
-        total_time = dashboard["time"].split(":") if "time" in dashboard else []#spend time
+        total_time = dashboard["time"].split(":") if "time" in dashboard else [] # spend time
         seconds    = float(total_time.pop()) if len(total_time) > 0 else 0.0
         minutes    = int(total_time.pop())   if len(total_time) > 0 else 0
         hours      = int(total_time.pop())   if len(total_time) > 0 else 0
@@ -165,8 +161,8 @@ if __name__ == "__main__":
     message = "lap,steering_angle,Kp,Ki,Kd,throttle"
     car_training_data_collector.save_data_direct(message)
     args = parser.parse_args()
-    ImageProcessor.switch_color(ImageProcessor.AUTO_DETECT)
-    #Inpiut arguments
+    ImageProcessor.switch_color(ImageProcessor.AUTO_DETECT) # sharpen it
+    #Input arguments
     if args.record:
         if not os.path.exists(args.record):
             os.makedirs(args.record)
@@ -192,8 +188,9 @@ if __name__ == "__main__":
             sio.emit('manual', data={}, skip_sid=True)
 
     @sio.on('connect')
-    def connect(sid, environ): # First time connect to car and environment
+    def connect(sid, environ):
         car.control(0, 0)
+    
     app = socketio.Middleware(sio, Flask(__name__))
     eventlet.wsgi.server(eventlet.listen(('', 4567)), app)
 
