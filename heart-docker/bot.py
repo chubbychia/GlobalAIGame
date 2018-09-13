@@ -222,18 +222,11 @@ class HeartPlayBot(PokerBot):
             if card.value > 10:
                 large_cards += 1
         
-        # aggressive
-        if large_cards > 5:
-            message="Pass card with _shooting_the_moon_pass"
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
-            return self._shooting_the_moon_pass(suit_dict)
-        # conservative
-        else:
-            message="Pass card with _conservative_pass"
-            self.system_log.show_message(message)
-            self.system_log.save_logs(message)
-            return self._conservative_pass(suit_dict)
+       
+        message="Pass card with _conservative_pass"
+        self.system_log.show_message(message)
+        self.system_log.save_logs(message)
+        return self._conservative_pass(suit_dict)
     
     def _conservative_pass(self, suit_dict):
         return_values=[]
@@ -491,9 +484,8 @@ class HeartPlayBot(PokerBot):
                 message = "Player:{}, scoreCards:{} State:{}".format(player_name, player['scoreCards'], player_sample.state)
                 self.system_log.show_message(message)
                 self.system_log.save_logs(message)
-            # Reward Design:
+            # Reward Design: -> Conservative
             # If opponent is shooting the moon -> my_score - shooting_score//3 as penalty
-            # If I shoot the moon -> shoot moon score * 1, which is as same as below
             # If other cases: my_score * my_rank
             opp_shooting_the_moon = [reward for name, reward in round_scores.items() if name != self.player_name and reward > 0]
             asc_score_sort = sorted(round_scores.items(), key=lambda d: d[1]) 
@@ -507,6 +499,8 @@ class HeartPlayBot(PokerBot):
                     if opp_shooting_the_moon:
                         my_score = original_score - opp_shooting_the_moon[0]//3
                     else:
+                        if original_score > 0: # Don't punish or encourage shooting the moon case
+                            original_score = 0
                         my_score = original_score * my_rank
                     message = "Me:{}, Adjust Round Score:{}".format(key, my_score)
                     self.system_log.show_message(message)
@@ -595,6 +589,7 @@ class HeartPlayBot(PokerBot):
         message = "============== Game count:{} ==============".format(self.game_count)
         self.system_log.show_message(message)
         self.system_log.save_logs(message)
+        print(message)
 
     def show_pick_history(self,data,is_timeout,pick_his):
         for key in pick_his.keys():
